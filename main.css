@@ -1,0 +1,12 @@
+#plugin-root {
+  border: 2px solid red;
+  display: inline-block;
+}
+
+#domu-root {
+  display: inline-block;
+}
+
+#domu-root canvas {
+  border: 2px solid blue;
+}
