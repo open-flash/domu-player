@@ -14,6 +14,8 @@
   "license": "MIT",
   "publishConfig": {},
   "dependencies": {
+    "@types/element-resize-detector": "^1.1.0",
+    "element-resize-detector": "^1.1.12",
     "semantic-types": "^0.1.1",
     "swf-parser": "^0.0.3",
     "swf-tree": "^0.0.11"
@@ -31,7 +33,7 @@
     "ts-loader": "^3.2.0",
     "ts-node": "^4.1.0",
     "tslint": "^5.8.0",
-    "typescript": "^2.6.2",
+    "typescript": "^2.7.0-dev.20180118",
     "uglifyjs-webpack-plugin": "^1.1.6",
     "webpack": "^3.10.0",
     "webpack-merge": "^4.1.1"

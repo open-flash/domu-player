@@ -1,4 +1,5 @@
-import {StraightSRgba, UintSize} from "semantic-types";
+import { Incident } from "incident";
+import { StraightSRgba, UintSize } from "semantic-types";
 import {
   FillStyle as SwfFillStyle,
   FillStyleType as SwfFillStyleType,
@@ -8,16 +9,16 @@ import {
   StraightSRgba8,
   tags,
 } from "swf-tree";
-import {FillStyle, FillStyleType} from "./fill-style";
-import {LineStyle, LineStyleType} from "./line-style";
-import {Command, CommandType, Path} from "./path";
-import {Shape} from "./shape";
-import {CharacterType} from "./character-type";
+import { CharacterType, ShapeCharacter } from "../display/character";
+import { FillStyle, FillStyleType } from "./fill-style";
+import { LineStyle, LineStyleType } from "./line-style";
+import { Command, CommandType, Path } from "./path";
+import { Shape } from "./shape";
 
 /**
  * Converts a space-optimized shape definition to a list of simpler paths for easier processing/rendering
  */
-export function decodeSwfShape(tag: tags.DefineShape): Shape {
+export function decodeSwfShape(tag: tags.DefineShape): ShapeCharacter {
   const converter: SwfShapeDecoder = new SwfShapeDecoder(tag.shape.fillStyles, tag.shape.lineStyles);
 
   for (const record of tag.shape.records) {
@@ -31,10 +32,13 @@ export function decodeSwfShape(tag: tags.DefineShape): Shape {
       case ShapeRecordType.StyleChange:
         converter.applyStyleChange(record);
         break;
+      default:
+        throw new Incident("UnreachableCode");
     }
   }
 
-  return converter.getShape();
+  const shape: Shape = converter.getShape();
+  return {id: tag.id, type: CharacterType.Shape, paths: shape.paths};
 }
 
 enum SegmentType {
@@ -352,7 +356,7 @@ class SwfShapeDecoder {
         paths.push(path);
       }
     }
-    return {type: CharacterType.Shape, paths};
+    return {paths};
   }
 
   private setNewStyles(swfFillStyles: SwfFillStyle[], swfLineStyles: SwfLineStyle[]): void {

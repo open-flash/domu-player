@@ -13,7 +13,10 @@
     "typeRoots": [
       "./custom-typings",
       "../node_modules/@types"
-    ]
+    ],
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "strict": true
   },
   "files": [
     "./main.browser.ts"

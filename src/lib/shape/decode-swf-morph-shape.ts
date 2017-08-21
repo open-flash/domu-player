@@ -1,24 +1,26 @@
-import {UintSize} from "semantic-types";
+import { Incident } from "incident";
+import { UintSize } from "semantic-types";
 import {
-  MorphFillStyle as SwfMorphFillStyle, MorphFillStyleType as SwfMorphFillStyleType,
-  MorphLineStyle as SwfMorphLineStyle, tags,
+  MorphFillStyle as SwfMorphFillStyle,
+  MorphFillStyleType as SwfMorphFillStyleType,
+  MorphLineStyle as SwfMorphLineStyle,
+  tags,
 } from "swf-tree";
-import {MorphShapeRecordType} from "swf-tree/morph-shape-records/_type";
-import {MorphCurvedEdge} from "swf-tree/morph-shape-records/morph-curved-edge";
-import {MorphStraightEdge} from "swf-tree/morph-shape-records/morph-straight-edge";
-import {MorphStyleChange} from "swf-tree/morph-shape-records/morph-style-change";
-import {normalizeStraightSRgba} from "./decode-swf-shape";
-import {MorphFillStyle, MorphFillStyleType} from "./morph-fill-style";
-import {MorphLineStyle, MorphLineStyleType} from "./morph-line-style";
-import {MorphCommand, MorphCommandType, MorphPath} from "./morph-path";
-import {MorphShape} from "./morph-shape";
-import {Shape} from "./shape";
-import {CharacterType} from "./character-type";
+import { MorphShapeRecordType } from "swf-tree/morph-shape-records/_type";
+import { MorphCurvedEdge } from "swf-tree/morph-shape-records/morph-curved-edge";
+import { MorphStraightEdge } from "swf-tree/morph-shape-records/morph-straight-edge";
+import { MorphStyleChange } from "swf-tree/morph-shape-records/morph-style-change";
+import { CharacterType, MorphShapeCharacter } from "../display/character";
+import { normalizeStraightSRgba } from "./decode-swf-shape";
+import { MorphFillStyle, MorphFillStyleType } from "./morph-fill-style";
+import { MorphLineStyle, MorphLineStyleType } from "./morph-line-style";
+import { MorphCommand, MorphCommandType, MorphPath } from "./morph-path";
+import { MorphShape } from "./morph-shape";
 
 /**
  * Converts a space-optimized morph shape definition to a list of simpler paths for easier processing/rendering
  */
-export function decodeSwfMorphShape(tag: tags.DefineMorphShape): MorphShape {
+export function decodeSwfMorphShape(tag: tags.DefineMorphShape): MorphShapeCharacter {
   const converter: SwfMorphShapeDecoder = new SwfMorphShapeDecoder(tag.shape.fillStyles, tag.shape.lineStyles);
 
   for (const record of tag.shape.records) {
@@ -32,10 +34,13 @@ export function decodeSwfMorphShape(tag: tags.DefineMorphShape): MorphShape {
       case MorphShapeRecordType.MorphStyleChange:
         converter.applyStyleChange(record);
         break;
+      default:
+        throw new Incident("UnreachableCode");
     }
   }
 
-  return converter.getShape();
+  const shape: MorphShape = converter.getShape();
+  return {id: tag.id, type: CharacterType.MorphShape, paths: shape.paths};
 }
 
 enum SegmentType {
@@ -364,7 +369,7 @@ class SwfMorphShapeDecoder {
         paths.push(path);
       }
     }
-    return {type: CharacterType.MorphShape, paths};
+    return {paths};
   }
 
   private setNewStyles(swfFillStyles: SwfMorphFillStyle[], swfLineStyles: SwfMorphLineStyle[]): void {

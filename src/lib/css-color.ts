@@ -1,4 +1,4 @@
-import {StraightSRgba} from "semantic-types";
+import { StraightSRgba } from "semantic-types";
 
 /**
  * Represents a valid CSS color such as `"rgba(200, 13, 53, 0.5)"` or `"transparent"`.

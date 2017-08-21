@@ -1,211 +1,183 @@
-import {StraightSRgba, Uint16} from "semantic-types";
-import {Tag, TagType} from "swf-tree";
-import {Matrix} from "swf-tree/matrix";
-import {Movie} from "swf-tree/movie";
-import {fromNormalizedColor} from "../lib/css-color";
-import {CanvasRenderer} from "../lib/renderers/canvas-renderer";
-import {Renderer} from "../lib/renderers/renderer";
-import {CharacterType} from "../lib/shape/character-type";
-import {decodeSwfMorphShape} from "../lib/shape/decode-swf-morph-shape";
-import {decodeSwfShape} from "../lib/shape/decode-swf-shape";
-import {MorphShape} from "../lib/shape/morph-shape";
-import {Shape} from "../lib/shape/shape";
-import {getMovie} from "./xhr-loader";
+import elementResizeDetector from "element-resize-detector";
+import { Incident } from "incident";
+import { CanvasRenderer } from "../lib/renderers/canvas-renderer";
+import { PlayerInterface, startPlayer } from "../lib/player";
+import { SchedulableClock } from "../lib/types/clock";
+import { SYSTEM_CLOCK } from "../lib/services/clock";
 
-export type Character = Shape | MorphShape;
-
-export interface ShapeInstance {
-  type: CharacterType.Shape;
-  shape: Shape;
+export interface Dimensions {
+  width: number;
+  height: number;
 }
 
-export interface MorphShapeInstance {
-  type: CharacterType.MorphShape;
-  shape: MorphShape;
-  matrix?: Matrix;
-  ratio: number;
+export interface DomuPlayerOptions {
+  container: HTMLElement;
+
+  /**
+   * Strategy for the viewport size.
+   * - `"containerContent"`: Automatically track the content size of the container. You can use is to control the size
+   *                         by defining the layout of the container with CSS.
+   * - `Dimensions`: Fixed dimensions matching the provided values.
+   * Default: `containerContent`.
+   */
+  viewportSize?: "containerContent" | Dimensions;
+
+  clock?: SchedulableClock;
 }
 
-export type CharacterInstance = ShapeInstance | MorphShapeInstance;
+function getContentDimensions(element: HTMLElement): Dimensions {
+  const style: CSSStyleDeclaration = getComputedStyle(element);
+  // `parseFloat` is used because the values are strings (suffixed by `px`).
+  const paddingX: number = parseFloat(style.paddingLeft!) + parseFloat(style.paddingRight!);
+  const paddingY: number = parseFloat(style.paddingTop!) + parseFloat(style.paddingBottom!);
+  const borderX: number = parseFloat(style.borderLeftWidth!) + parseFloat(style.borderRightWidth!);
+  const borderY: number = parseFloat(style.borderTopWidth!) + parseFloat(style.borderBottomWidth!);
 
-interface FrameTree {
-  instances: Map<number, CharacterInstance>;
+  return {
+    width: element.offsetWidth - paddingX - borderX,
+    height: element.offsetHeight - paddingY - borderY,
+  };
 }
 
-/**
- * Encapsulates an abstract player in a DOM <div> element
- */
+function resetStyle(element: HTMLElement): void {
+  element.style.width = "0";
+  element.style.height = "0";
+  element.style.padding = "0";
+  element.style.margin = "0";
+  element.style.border = "none";
+}
+
 export class DomuPlayer {
-  private readonly container: HTMLDivElement;
-  private readonly movieUri: string;
-  private readonly root: HTMLDivElement;
-  private readonly dictionary: Map<Uint16, Character>;
-  private readonly frameTree: FrameTree;
-  private readonly renderer: Renderer;
+  readonly container: HTMLElement;
 
-  constructor(container: HTMLDivElement, movieUri: string) {
-    this.container = container;
-    this.movieUri = movieUri;
-    this.frameTree = {instances: new Map()};
-    this.dictionary = new Map();
+  private readonly root: HTMLSpanElement;
+  private readonly canvas: HTMLCanvasElement;
+  private readonly renderer: CanvasRenderer;
+  private readonly clock: SchedulableClock;
+  private player?: PlayerInterface;
 
-    // this.root = container.attachShadow({ mode: "open" });
-    this.root = document.createElement("div");
-    this.container.appendChild(this.root);
-    this.renderer = this.createRenderer();
-
-    this.load();
-  }
-
-  private createRenderer(): Renderer {
-    const canvas: HTMLCanvasElement = document.createElement("canvas");
-    const context: CanvasRenderingContext2D | null = canvas.getContext("2d");
-    if (context === null) {
-      throw new Error("Unable to initialize canvas renderer");
+  private get containerResizeDetector(): elementResizeDetector.Erd {
+    if (this._containerResizeDetector === undefined) {
+      this._containerResizeDetector = elementResizeDetector({strategy: "scroll"});
     }
-    let [width, height] = this.getContainerSize();
-    if (width === 0 || height === 0) {
-      width = 240;
-      height = 200;
+    return this._containerResizeDetector;
+  }
+
+  private _containerResizeDetector?: elementResizeDetector.Erd;
+
+  private get containerResizeListener(): () => void {
+    if (this._containerResizeListener === undefined) {
+      this._containerResizeListener = () => this.handleViewportResize(getContentDimensions(this.container));
     }
-    canvas.width = width;
-    canvas.height = height;
-    this.root.appendChild(canvas);
-    return new CanvasRenderer(context, width, height);
+    return this._containerResizeListener;
   }
 
-  private getContainerSize(): [number, number] {
-    return [this.container.clientWidth, this.container.clientHeight];
+  private _containerResizeListener?: () => void;
+
+  /**
+   * Viewport size: match containerContent or fixed dimensions
+   */
+  public get viewportSize(): "containerContent" | Readonly<Dimensions> {
+    return this._viewportSize;
   }
 
-  private setBackgroundColor(color: StraightSRgba): void {
-    this.root.style.backgroundColor = fromNormalizedColor(color);
-  }
-
-  private splitTagsByFrame(tags: Iterable<Tag>): Tag[][] {
-    const result: Tag[][] = [];
-    let cur: Tag[] = [];
-    for (const tag of tags) {
-      cur.push(tag);
-      if (tag.type === TagType.ShowFrame) {
-        result.push(cur);
-        cur = [];
+  public set viewportSize(value: "containerContent" | Readonly<Dimensions>) {
+    if (value === "containerContent") {
+      if (this._viewportSize === "containerContent") {
+        return;
       }
-    }
-    if (cur.length !== 0) {
-      result.push(cur);
-    }
-    return result;
-  }
-
-  private async delay(ms: number): Promise<void> {
-    return new Promise<void>((resolve) => setTimeout(resolve, ms));
-  }
-
-  private async play(movie: Movie): Promise<never> {
-    while (true) {
-      for (const tags of this.splitTagsByFrame(movie.tags)) {
-        this.applyTags(tags);
-        await this.delay(1000 / movie.header.frameRate.valueOf());
+      this._viewportSize = "containerContent";
+      this.containerResizeDetector.listenTo(this.container, this.containerResizeListener);
+      this.handleViewportResize(getContentDimensions(this.container));
+    } else {
+      if (this._viewportSize === "containerContent") {
+        this.containerResizeDetector.removeListener(this.container, this.containerResizeListener);
       }
+      const newSize: Dimensions = Object.freeze({width: value.width, height: value.height});
+      this._viewportSize = newSize;
+      this.handleViewportResize(newSize);
     }
   }
 
-  private load(): void {
-    getMovie(this.movieUri).then((movie) => {
-      this.play(movie);
+  private _viewportSize!: "containerContent" | Readonly<Dimensions>;
+
+  constructor(options: DomuPlayerOptions) {
+    const container: HTMLElement = options.container;
+    if (Reflect.get(container, "domuPlayer") !== undefined) {
+      throw new Incident("DuplicatePlayer", "Cannot acquire ownership of container: already owned");
+    }
+    if (container.childNodes.length !== 0) {
+      throw new Incident(
+        "NonEmptyContainer",
+        "The container used for the domu player must be empty (`container.childNodes.length === 0`)",
+      );
+    }
+    // Signal exclusive ownership of the container
+    Reflect.set(container, "domuPlayer", this);
+
+    try {
+      this.container = container;
+      this.root = document.createElement("span");
+      this.canvas = document.createElement("canvas");
+
+      resetStyle(this.root);
+      resetStyle(this.canvas);
+
+      this.root.style.position = "relative";
+      this.root.style.cssFloat = "left";
+      this.canvas.style.position = "absolute";
+      this.canvas.style.left = "0";
+      this.canvas.style.top = "0";
+      this.canvas.width = 0;
+      this.canvas.height = 0;
+
+      this.root.appendChild(this.canvas);
+      container.appendChild(this.root);
+
+      // Also updates the canvas size
+      this.viewportSize = options.viewportSize !== undefined ? options.viewportSize : "containerContent";
+
+      const context: CanvasRenderingContext2D | null = this.canvas.getContext("2d");
+      if (context === null) {
+        throw new Incident("CanvasContextAcquisition", "Unable to acquire canvas context");
+      }
+      this.renderer = new CanvasRenderer(context, this.canvas.width, this.canvas.height);
+      this.clock = options.clock !== undefined ? options.clock : SYSTEM_CLOCK;
+      this.player = undefined;
+    } catch (err) {
+      Reflect.deleteProperty(container, "domuPlayer");
+      throw err;
+    }
+  }
+
+  setMovieUrl(movieUrl: string) {
+    if (this.player !== undefined) {
+      this.player.destroy();
+    }
+    this.player = startPlayer({
+      movieUrl,
+      clock: this.clock,
+      renderer: this.renderer,
     });
   }
 
-  private applyTags(tags: Iterable<Tag>): void {
-    for (const tag of tags) {
-      this.applyTag(tag);
-    }
-  }
-
-  private applyTag(tag: Tag): void {
-    switch (tag.type) {
-      case TagType.DefineMorphShape:
-        this.dictionary.set(tag.id, decodeSwfMorphShape(tag));
-        break;
-      case TagType.DefineShape:
-        this.dictionary.set(tag.id, decodeSwfShape(tag));
-        break;
-      case TagType.FileAttributes:
-        console.log("File attributes:");
-        console.log(tag);
-        break;
-      case TagType.Metadata:
-        break;
-      case TagType.PlaceObject:
-        if (tag.characterId !== undefined) {
-          const character: Character | undefined = this.dictionary.get(tag.characterId);
-          if (character === undefined) {
-            console.warn(`Unknown character id: ${tag.characterId}`);
-            break;
-          }
-          switch (character.type) {
-            case CharacterType.MorphShape:
-              this.frameTree.instances.set(
-                tag.depth,
-                {
-                  type: CharacterType.MorphShape,
-                  shape: character,
-                  matrix: tag.matrix,
-                  ratio: tag.ratio === undefined ? 0 : tag.ratio / (1 << 16),
-                },
-              );
-              break;
-            case CharacterType.Shape:
-              this.frameTree.instances.set(tag.depth, {type: CharacterType.Shape, shape: character});
-              break;
-            default:
-              console.warn(`Unknown character type: ${(character as any).type}`);
-              break;
-          }
-        } else {
-          if (tag.depth === undefined) {
-            console.warn("Expected depth to be defined");
-            break;
-          }
-          const instance: CharacterInstance | undefined = this.frameTree.instances.get(tag.depth);
-          if (instance === undefined) {
-            console.warn(`Instance not found at depth: ${tag.depth}`);
-            break;
-          }
-          if (tag.matrix !== undefined) {
-            (instance as MorphShapeInstance).matrix = tag.matrix;
-          }
-          (instance as MorphShapeInstance).ratio = tag.ratio === undefined ? 0 : tag.ratio / (1 << 16);
-          break;
-        }
-        break;
-      case TagType.SetBackgroundColor:
-        this.setBackgroundColor({r: tag.color.r / 255, g: tag.color.g / 255, b: tag.color.b / 255, a: 1});
-        break;
-      case TagType.ShowFrame:
-        this.renderer.clear();
-        for (const [depth, instance] of this.frameTree.instances) {
-          switch (instance.type) {
-            case CharacterType.MorphShape:
-              this.renderer.drawMorphShape(instance.shape, instance.ratio, instance.matrix);
-              break;
-            case CharacterType.Shape:
-              this.renderer.drawShape(instance.shape);
-              break;
-            default:
-              console.warn(`Unknown instance type: ${(instance as any).type}`);
-              break;
-          }
-        }
-        break;
-      default:
-        console.warn(`Unsupported tag type (${TagType[tag.type]}) for the following tag:`);
-        console.warn(tag);
+  /**
+   * Called when the size of the viewport _may_ have been updated.
+   */
+  private handleViewportResize(newSize: Dimensions) {
+    const {width, height} = newSize;
+    this.canvas.width = width;
+    this.canvas.height = height;
+    this.canvas.style.width = `${width}px`;
+    this.canvas.style.height = `${height}px`;
+    // TODO: Fix this, this method is called as a side-effect of initializing the size of the viewport
+    //       (before the creation of the renderer)
+    if (this.renderer !== undefined) {
+      this.renderer.updateSize(width, height);
     }
   }
 }
 
-export function createPlayer(container: HTMLDivElement, movieUri: string): DomuPlayer {
-  return new DomuPlayer(container, movieUri);
+export function createDomuPlayer(options: DomuPlayerOptions): DomuPlayer {
+  return new DomuPlayer(options);
 }

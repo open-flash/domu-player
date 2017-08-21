@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "allowJs": false,
-    "allowSyntheticDefaultImports": false,
+    "allowSyntheticDefaultImports": true,
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "charset": "utf8",
@@ -10,6 +10,7 @@
     "disableSizeLimit": false,
     "emitBOM": false,
     "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
     "inlineSourceMap": false,
@@ -40,6 +41,7 @@
     "skipLibCheck": true,
     "skipDefaultLibCheck": false,
     "sourceMap": true,
+    "strict": true,
     "strictNullChecks": true,
     "stripInternal": false,
     "suppressExcessPropertyErrors": false,

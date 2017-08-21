@@ -1,14 +1,19 @@
-import {Matrix} from "swf-tree/matrix";
-import {fromNormalizedColor} from "../css-color";
-import {FillStyleType} from "../shape/fill-style";
-import {LineStyleType} from "../shape/line-style";
-import {MorphFillStyleType} from "../shape/morph-fill-style";
-import {MorphLineStyleType} from "../shape/morph-line-style";
-import {MorphCommandType, MorphPath} from "../shape/morph-path";
-import {MorphShape} from "../shape/morph-shape";
-import {CommandType, Path} from "../shape/path";
-import {Shape} from "../shape/shape";
-import {Renderer} from "./renderer";
+import { Matrix } from "swf-tree/matrix";
+import { fromNormalizedColor } from "../css-color";
+import { DisplayObject } from "../display/display-object";
+import { DisplayObjectVisitor } from "../display/display-object-visitor";
+import { SwfLoader } from "../display/loader";
+import { MorphShape } from "../display/morph-shape";
+import { Shape } from "../display/shape";
+import { Sprite } from "../display/sprite";
+import { Stage } from "../display/stage";
+import { FillStyleType } from "../shape/fill-style";
+import { LineStyleType } from "../shape/line-style";
+import { MorphFillStyleType } from "../shape/morph-fill-style";
+import { MorphLineStyleType } from "../shape/morph-line-style";
+import { MorphCommandType, MorphPath } from "../shape/morph-path";
+import { CommandType, Path } from "../shape/path";
+import { Renderer } from "./renderer";
 
 function lerp(start: number, end: number, ratio: number): number {
   return end * ratio + start * (1 - ratio);
@@ -36,8 +41,8 @@ function clamp(x: number, min: number, max: number): number {
 
 export class CanvasRenderer implements Renderer {
   private readonly context: CanvasRenderingContext2D;
-  private readonly width: number;
-  private readonly height: number;
+  private width: number;
+  private height: number;
 
   constructor(context: CanvasRenderingContext2D, width: number, height: number) {
     this.context = context;
@@ -45,7 +50,53 @@ export class CanvasRenderer implements Renderer {
     this.height = height;
   }
 
-  drawMorphShape(shape: MorphShape, ratio: number, matrix?: Matrix): void {
+  updateSize(width: number, height: number): void {
+    this.width = width;
+    this.height = height;
+  }
+
+  render(stage: Stage): void {
+    this.renderStage(stage);
+  }
+
+  private renderDisplayObject(displayObject: DisplayObject): void {
+    const visitor: DisplayObjectVisitor = {
+      visitStage: stage => this.renderStage(stage),
+      visitSprite: sprite => this.renderSprite(sprite),
+      visitLoader: loader => this.renderLoader(loader),
+      visitShape: shape => this.renderShape(shape),
+      visitMorphShape: morphShape => this.renderMorphShape(morphShape),
+    };
+    displayObject.visit(visitor);
+  }
+
+  private renderStage(stage: Stage): void {
+    this.clear();
+    for (const child of stage.children) {
+      this.renderDisplayObject(child);
+    }
+  }
+
+  private renderSprite(sprite: Sprite): void {
+    for (const child of sprite.children) {
+      this.renderDisplayObject(child);
+    }
+  }
+
+  private renderLoader(loader: SwfLoader): void {
+    // console.log("Rendering loader");
+  }
+
+  private renderShape(shape: Shape): void {
+    this.drawShape(shape);
+  }
+
+  private renderMorphShape(morphShape: MorphShape): void {
+    this.drawMorphShape(morphShape, morphShape.ratio, morphShape.matrix);
+    // console.log("Rendering morphShape");
+  }
+
+  private drawMorphShape(shape: MorphShape, ratio: number, matrix?: Matrix): void {
     this.context.save();
     try {
       this.context.scale(1 / 20, 1 / 20);
@@ -59,7 +110,7 @@ export class CanvasRenderer implements Renderer {
           matrix.translateY,
         );
       }
-      for (const path of shape.paths) {
+      for (const path of shape.character.paths) {
         this.drawMorphPath(path, ratio);
       }
     } catch (err) {
@@ -69,11 +120,11 @@ export class CanvasRenderer implements Renderer {
     }
   }
 
-  drawShape(shape: Shape): void {
+  private drawShape(shape: Shape): void {
     this.context.save();
     try {
       this.context.scale(1 / 20, 1 / 20);
-      for (const path of shape.paths) {
+      for (const path of shape.character.paths) {
         this.drawPath(path);
       }
     } catch (err) {
@@ -83,7 +134,7 @@ export class CanvasRenderer implements Renderer {
     }
   }
 
-  clear(): void {
+  private clear(): void {
     this.context.clearRect(0, 0, this.width, this.height);
   }
 
