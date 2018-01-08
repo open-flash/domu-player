@@ -108,7 +108,7 @@ export class DomuPlayer {
         this.setBackgroundColor({r: tag.color.r / 255, g: tag.color.g / 255, b: tag.color.b / 255, a: 1});
         break;
       default:
-        console.warn("Unsupported tag:");
+        console.warn(`Unsupported tag type (${TagType[tag.type]}) for the following tag:`);
         console.warn(tag);
     }
   }

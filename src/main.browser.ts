@@ -6,6 +6,7 @@ polyfillAll();
 async function run() {
   const root: HTMLDivElement = document.getElementById("domu-root") as HTMLDivElement;
   const src: string = "squares.swf";
+  // const src: string = "morph.swf";
   createPlayer(root, src);
 }
 

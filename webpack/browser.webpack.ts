@@ -18,11 +18,11 @@ export function getBrowserPartial(isProduction: boolean): any {
       rules: [
         {
           test: /\.ts$/,
-          exclude: /node_modules/,
+          exclude: /node_modules|swf-tree|swf-parser/,
           loader: "ts-loader",
           options: {
-            configFileName: "browser.tsconfig.json",
-            visualStudioErrorFormat: true,
+            configFile: "browser.tsconfig.json",
+            // visualStudioErrorFormat: true,
             compilerOptions: {
               declaration: false,
             },

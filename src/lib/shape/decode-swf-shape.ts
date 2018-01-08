@@ -306,8 +306,8 @@ class SwfShapeDecoder {
   }
 
   applyStraightEdge(record: shapeRecords.StraightEdge): void {
-    const endX: number = this.x + record.endDelta.x;
-    const endY: number = this.y + record.endDelta.y;
+    const endX: number = this.x + record.delta.x;
+    const endY: number = this.y + record.delta.y;
 
     if (this.leftFill !== undefined) {
       this.leftFill.segments.push(createStraightSegment(this.x, this.y, endX, endY));
@@ -326,8 +326,8 @@ class SwfShapeDecoder {
   applyCurvedEdge(record: shapeRecords.CurvedEdge): void {
     const controlX: number = this.x + record.controlDelta.x;
     const controlY: number = this.y + record.controlDelta.y;
-    const endX: number = this.x + record.endDelta.x;
-    const endY: number = this.y + record.endDelta.y;
+    const endX: number = this.x + record.anchorDelta.x;
+    const endY: number = this.y + record.anchorDelta.y;
 
     if (this.leftFill !== undefined) {
       this.leftFill.segments.push(createCurvedSegment(this.x, this.y, controlX, controlY, endX, endY));
