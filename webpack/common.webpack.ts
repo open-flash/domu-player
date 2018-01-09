@@ -7,9 +7,6 @@ const projectRoot: string = resolvePath(__dirname, "..");
 export function getCommonPartial(isProduction: boolean): any {
   return {
     devtool: isProduction ? undefined : "source-map",
-    resolve: {
-      extensions: [".ts", ".js"],
-    },
     plugins: !isProduction ? [] : [
       new DefinePlugin({
         "process.env": {

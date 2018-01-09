@@ -15,8 +15,8 @@
   "publishConfig": {},
   "dependencies": {
     "semantic-types": "^0.1.1",
-    "swf-parser": "0.0.2",
-    "swf-tree": "^0.0.10"
+    "swf-parser": "^0.0.3",
+    "swf-tree": "^0.0.11"
   },
   "devDependencies": {
     "@types/copy-webpack-plugin": "^4.0.1",

@@ -1,3 +1,4 @@
+import {Matrix} from "swf-tree/matrix";
 import {fromNormalizedColor} from "../css-color";
 import {FillStyleType} from "../shape/fill-style";
 import {LineStyleType} from "../shape/line-style";
@@ -44,10 +45,20 @@ export class CanvasRenderer implements Renderer {
     this.height = height;
   }
 
-  drawMorphShape(shape: MorphShape, ratio: number): void {
+  drawMorphShape(shape: MorphShape, ratio: number, matrix?: Matrix): void {
     this.context.save();
     try {
       this.context.scale(1 / 20, 1 / 20);
+      if (matrix !== undefined) {
+        this.context.transform(
+          matrix.scaleX.valueOf(),
+          matrix.rotateSkew0.valueOf(),
+          matrix.rotateSkew1.valueOf(),
+          matrix.scaleY.valueOf(),
+          matrix.translateX,
+          matrix.translateY,
+        );
+      }
       for (const path of shape.paths) {
         this.drawMorphPath(path, ratio);
       }
@@ -73,8 +84,7 @@ export class CanvasRenderer implements Renderer {
   }
 
   clear(): void {
-    this.context.fillStyle = "transparent";
-    this.context.fillRect(0, 0, this.width, this.height);
+    this.context.clearRect(0, 0, this.width, this.height);
   }
 
   private drawMorphPath(path: MorphPath, ratio: number): void {
@@ -88,22 +98,22 @@ export class CanvasRenderer implements Renderer {
       switch (command.type) {
         case MorphCommandType.CurveTo:
           this.context.quadraticCurveTo(
-            lerp(command.startControlX, command.endControlX, ratio),
-            lerp(command.startControlY, command.endControlY, ratio),
-            lerp(command.startEndX, command.endEndX, ratio),
-            lerp(command.startEndY, command.endEndY, ratio),
+            lerp(command.controlX[0], command.controlY[1], ratio),
+            lerp(command.controlY[0], command.controlY[1], ratio),
+            lerp(command.endX[0], command.endX[1], ratio),
+            lerp(command.endY[0], command.endY[1], ratio),
           );
           break;
         case MorphCommandType.LineTo:
           this.context.lineTo(
-            lerp(command.startEndX, command.endEndX, ratio),
-            lerp(command.startEndY, command.endEndY, ratio),
+            lerp(command.endX[0], command.endX[1], ratio),
+            lerp(command.endY[0], command.endY[1], ratio),
           );
           break;
         case MorphCommandType.MoveTo:
           this.context.moveTo(
-            lerp(command.startX, command.endX, ratio),
-            lerp(command.startY, command.endY, ratio),
+            lerp(command.x[0], command.x[1], ratio),
+            lerp(command.y[0], command.y[1], ratio),
           );
           break;
         default:
@@ -125,12 +135,14 @@ export class CanvasRenderer implements Renderer {
     if (path.line !== undefined) {
       switch (path.line.type) {
         case MorphLineStyleType.Solid:
-          this.context.lineWidth = path.line.width;
+          this.context.lineWidth = lerp(path.line.width[0], path.line.width[1], ratio);
           this.context.strokeStyle = fromNormalizedColor(lerpRgba(path.line.startColor, path.line.endColor, ratio));
           break;
         default:
           throw new Error("TODO: FailedAssertion");
       }
+      this.context.lineCap = "round";
+      this.context.lineJoin = "round";
       this.context.stroke();
     }
   }

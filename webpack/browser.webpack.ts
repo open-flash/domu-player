@@ -14,14 +14,18 @@ export function getBrowserPartial(isProduction: boolean): any {
       path: resolvePath(projectRoot, "build", "browser", "scripts"),
       filename: isProduction ? "[name].[chunkhash].js" : "[name].js",
     },
+    resolve: {
+      extensions: [".js", ".json", ".ts"],
+    },
     module: {
       rules: [
         {
           test: /\.ts$/,
-          exclude: /node_modules|swf-tree|swf-parser/,
+          exclude: /node_modules/,
           loader: "ts-loader",
           options: {
             configFile: "browser.tsconfig.json",
+            onlyCompileBundledFiles: true,
             // visualStudioErrorFormat: true,
             compilerOptions: {
               declaration: false,
