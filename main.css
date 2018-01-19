@@ -1,12 +1,12 @@
-#plugin-root, #plugin-root2 {
-  border: 2px solid red;
-  display: inline-block;
+embed {
+  outline: 2px solid red;
 }
 
-#domu-root, #domu-root2 {
-  display: inline-block;
+x-swf {
+  outline: 2px solid blue;
 }
 
-#domu-root canvas, #domu-root2 canvas {
-  border: 2px solid blue;
+.domu-player {
+  display: inline-block;
+  outline: 2px solid green;
 }
