@@ -9,8 +9,10 @@ import {
   StraightSRgba8,
   tags,
 } from "swf-tree";
+import { Gradient as SwfGradient } from "swf-tree/gradient";
 import { CharacterType, ShapeCharacter } from "../display/character";
 import { FillStyle, FillStyleType } from "./fill-style";
+import { ColorStop, Gradient } from "./gradient";
 import { LineStyle, LineStyleType } from "./line-style";
 import { Command, CommandType, Path } from "./path";
 import { Shape } from "./shape";
@@ -84,7 +86,7 @@ function createCurvedSegment(
  */
 type Segment = StraightSegment | CurvedSegment;
 
-// TODO: Move out this module
+// TODO: Move out of this module
 export function normalizeStraightSRgba(color: StraightSRgba8): Readonly<StraightSRgba<number>> {
   return {
     r: color.r / 255,
@@ -94,16 +96,41 @@ export function normalizeStraightSRgba(color: StraightSRgba8): Readonly<Straight
   };
 }
 
+function decodeGradient(swfGradient: SwfGradient): Gradient {
+  const colors: ColorStop[] = [];
+  for (const colorStop of swfGradient.colors) {
+    colors.push({ratio: colorStop.ratio / 0xff, color: normalizeStraightSRgba(colorStop.color)});
+  }
+  return {...swfGradient, colors};
+}
+
 /**
  * Normalize the fill style from the SWF format to the renderer format
  */
-function decodeFillStyle(old: SwfFillStyle): FillStyle {
-  switch (old.type) {
+function decodeFillStyle(swfStyle: SwfFillStyle): FillStyle {
+  switch (swfStyle.type) {
+    case SwfFillStyleType.Bitmap:
+      return {...swfStyle, type: FillStyleType.Bitmap};
+    case SwfFillStyleType.FocalGradient:
+      return {
+        type: FillStyleType.FocalGradient,
+        matrix: swfStyle.matrix,
+        gradient: decodeGradient(swfStyle.gradient),
+        focalPoint: swfStyle.focalPoint.valueOf(),
+      };
+    case SwfFillStyleType.LinearGradient:
+      return {type: FillStyleType.LinearGradient, matrix: swfStyle.matrix, gradient: decodeGradient(swfStyle.gradient)};
+    case SwfFillStyleType.RadialGradient:
+      return {
+        type: FillStyleType.FocalGradient,
+        matrix: swfStyle.matrix,
+        gradient: decodeGradient(swfStyle.gradient),
+        focalPoint: 0,
+      };
     case SwfFillStyleType.Solid:
-      return {type: FillStyleType.Solid, color: normalizeStraightSRgba(old.color)};
+      return {type: FillStyleType.Solid, color: normalizeStraightSRgba(swfStyle.color)};
     default:
-      console.warn(old);
-      throw new Error("Unknown fill type");
+      throw new Incident("UnknownFillStyle", {style: swfStyle});
   }
 }
 
@@ -299,6 +326,13 @@ class SwfShapeDecoder {
   }
 
   applyStyleChange(record: shapeRecords.StyleChange): void {
+    // TODO: Support only updating one of fillStyle or lineStyle
+    if (record.fillStyles !== undefined || record.lineStyles !== undefined) {
+      // TODO: Reuse old style instead of overriding if missing
+      const newFills: SwfFillStyle[] = record.fillStyles !== undefined ? record.fillStyles : [];
+      const newLines: SwfLineStyle[] = record.lineStyles !== undefined ? record.lineStyles : [];
+      this.setNewStyles(newFills, newLines);
+    }
     if (record.leftFill !== undefined) {
       this.setLeftFillById(record.leftFill);
     }
@@ -332,8 +366,8 @@ class SwfShapeDecoder {
   applyCurvedEdge(record: shapeRecords.CurvedEdge): void {
     const controlX: number = this.x + record.controlDelta.x;
     const controlY: number = this.y + record.controlDelta.y;
-    const endX: number = this.x + record.anchorDelta.x;
-    const endY: number = this.y + record.anchorDelta.y;
+    const endX: number = controlX + record.anchorDelta.x;
+    const endY: number = controlY + record.anchorDelta.y;
 
     if (this.leftFill !== undefined) {
       this.leftFill.segments.push(createCurvedSegment(this.x, this.y, controlX, controlY, endX, endY));

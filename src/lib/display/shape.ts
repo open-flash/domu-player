@@ -1,9 +1,11 @@
+import { Matrix } from "swf-tree/matrix";
 import { ShapeCharacter } from "./character";
 import { DisplayObject } from "./display-object";
 import { DisplayObjectVisitor } from "./display-object-visitor";
 
 export class Shape extends DisplayObject {
   readonly character: ShapeCharacter;
+  matrix?: Matrix;
 
   constructor(character: ShapeCharacter) {
     super();

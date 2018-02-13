@@ -17,8 +17,6 @@ export interface StageInterface {
 
 // TODO: Get rid of these default values (they should never be needed)
 const DEFAULT_BACKGROUND_COLOR: Readonly<SRgb8> = Object.freeze({r: 255, g: 255, b: 255});
-const DEFAULT_WIDTH: VPxDist = 640;
-const DEFAULT_HEIGHT: VPxDist = 480;
 
 /**
  * A stage represent a drawing area. It holds the root of its display tree.

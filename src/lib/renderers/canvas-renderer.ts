@@ -1,3 +1,4 @@
+import { Incident } from "incident";
 import { Matrix } from "swf-tree/matrix";
 import { fromNormalizedColor } from "../css-color";
 import { DisplayObject } from "../display/display-object";
@@ -5,6 +6,7 @@ import { DisplayObjectVisitor } from "../display/display-object-visitor";
 import { SwfLoader } from "../display/loader";
 import { MorphShape } from "../display/morph-shape";
 import { Shape } from "../display/shape";
+import { ButtonState, SimpleButton } from "../display/simple-button";
 import { Sprite } from "../display/sprite";
 import { Stage } from "../display/stage";
 import { FillStyleType } from "../shape/fill-style";
@@ -66,20 +68,62 @@ export class CanvasRenderer implements Renderer {
       visitLoader: loader => this.renderLoader(loader),
       visitShape: shape => this.renderShape(shape),
       visitMorphShape: morphShape => this.renderMorphShape(morphShape),
+      visitSimpleButton: simpleButton => this.renderSimpleButton(simpleButton),
     };
     displayObject.visit(visitor);
   }
 
   private renderStage(stage: Stage): void {
-    this.clear();
+    this.context.setTransform(1, 0, 0, 1, 0, 0);
+    this.context.clearRect(0, 0, this.width, this.height);
+    // TODO: FillRect with background color?
+
+    this.context.scale(1 / 20, 1 / 20);
     for (const child of stage.children) {
       this.renderDisplayObject(child);
     }
   }
 
   private renderSprite(sprite: Sprite): void {
-    for (const child of sprite.children) {
-      this.renderDisplayObject(child);
+    this.context.save();
+    try {
+      if (sprite.matrix !== undefined) {
+        this.applyMatrix(sprite.matrix);
+      }
+      for (const child of sprite.children) {
+        this.renderDisplayObject(child);
+      }
+    } catch (err) {
+      throw err;
+    } finally {
+      this.context.restore();
+    }
+  }
+
+  private renderSimpleButton(simpleButton: SimpleButton): void {
+    switch (simpleButton.state) {
+      case ButtonState.Up:
+        if (simpleButton.upState !== undefined) {
+          this.renderDisplayObject(simpleButton.upState);
+        }
+        break;
+      case ButtonState.Down:
+        if (simpleButton.downState !== undefined) {
+          this.renderDisplayObject(simpleButton.downState);
+        }
+        break;
+      case ButtonState.Over:
+        if (simpleButton.overState !== undefined) {
+          this.renderDisplayObject(simpleButton.overState);
+        }
+        break;
+      case ButtonState.HitTest:
+        if (simpleButton.hitTestState !== undefined) {
+          this.renderDisplayObject(simpleButton.hitTestState);
+        }
+        break;
+      default:
+        throw new Incident("UnexpectedSwitchVariant", simpleButton.state);
     }
   }
 
@@ -92,23 +136,25 @@ export class CanvasRenderer implements Renderer {
   }
 
   private renderMorphShape(morphShape: MorphShape): void {
-    this.drawMorphShape(morphShape, morphShape.ratio, morphShape.matrix);
-    // console.log("Rendering morphShape");
+    this.drawMorphShape(morphShape, morphShape.ratio);
   }
 
-  private drawMorphShape(shape: MorphShape, ratio: number, matrix?: Matrix): void {
+  private applyMatrix(matrix: Matrix): void {
+    this.context.transform(
+      matrix.scaleX.valueOf(),
+      matrix.rotateSkew0.valueOf(),
+      matrix.rotateSkew1.valueOf(),
+      matrix.scaleY.valueOf(),
+      matrix.translateX,
+      matrix.translateY,
+    );
+  }
+
+  private drawMorphShape(shape: MorphShape, ratio: number): void {
     this.context.save();
     try {
-      this.context.scale(1 / 20, 1 / 20);
-      if (matrix !== undefined) {
-        this.context.transform(
-          matrix.scaleX.valueOf(),
-          matrix.rotateSkew0.valueOf(),
-          matrix.rotateSkew1.valueOf(),
-          matrix.scaleY.valueOf(),
-          matrix.translateX,
-          matrix.translateY,
-        );
+      if (shape.matrix !== undefined) {
+        this.applyMatrix(shape.matrix);
       }
       for (const path of shape.character.paths) {
         this.drawMorphPath(path, ratio);
@@ -123,7 +169,9 @@ export class CanvasRenderer implements Renderer {
   private drawShape(shape: Shape): void {
     this.context.save();
     try {
-      this.context.scale(1 / 20, 1 / 20);
+      if (shape.matrix !== undefined) {
+        this.applyMatrix(shape.matrix);
+      }
       for (const path of shape.character.paths) {
         this.drawPath(path);
       }
@@ -132,10 +180,6 @@ export class CanvasRenderer implements Renderer {
     } finally {
       this.context.restore();
     }
-  }
-
-  private clear(): void {
-    this.context.clearRect(0, 0, this.width, this.height);
   }
 
   private drawMorphPath(path: MorphPath, ratio: number): void {
@@ -168,7 +212,7 @@ export class CanvasRenderer implements Renderer {
           );
           break;
         default:
-          throw new Error("FailedAssertion: Unexpected morph command");
+          throw new Incident("UnexpectedMorphCommand", {command});
       }
     }
 
@@ -178,7 +222,7 @@ export class CanvasRenderer implements Renderer {
           this.context.fillStyle = fromNormalizedColor(lerpRgba(path.fill.startColor, path.fill.endColor, ratio));
           break;
         default:
-          throw new Error("TODO: FailedAssertion");
+          throw new Incident("NotImplementedFillStyle", {style: path.fill});
       }
       this.context.fill();
     }
@@ -190,7 +234,7 @@ export class CanvasRenderer implements Renderer {
           this.context.strokeStyle = fromNormalizedColor(lerpRgba(path.line.startColor, path.line.endColor, ratio));
           break;
         default:
-          throw new Error("TODO: FailedAssertion");
+          throw new Incident("NotImplementedLineStyle", {style: path.line});
       }
       this.context.lineCap = "round";
       this.context.lineJoin = "round";
@@ -217,19 +261,41 @@ export class CanvasRenderer implements Renderer {
           this.context.moveTo(command.x, command.y);
           break;
         default:
-          throw new Error("FailedAssertion: Unexpected command");
+          throw new Incident("UnexpectedCommand", {command});
       }
     }
 
     if (path.fill !== undefined) {
+      this.context.save();
       switch (path.fill.type) {
+        case FillStyleType.Bitmap:
+          this.context.fillStyle = fromNormalizedColor({
+            r: 0.2,
+            g: 0.6,
+            b: 0.8,
+            a: 0.9,
+          });
+          break;
         case FillStyleType.Solid:
           this.context.fillStyle = fromNormalizedColor(path.fill.color);
           break;
+        case FillStyleType.FocalGradient:
+          this.applyMatrix(path.fill.matrix);
+          const GRAD_RADIUS: number = 16384;
+          const gradient: CanvasGradient = this.context.createRadialGradient(
+            lerp(0, GRAD_RADIUS, path.fill.focalPoint), 0, 0,
+            0, 0, GRAD_RADIUS,
+          );
+          for (const colorStop of path.fill.gradient.colors) {
+            gradient.addColorStop(colorStop.ratio, fromNormalizedColor(colorStop.color));
+          }
+          this.context.fillStyle = gradient;
+          break;
         default:
-          throw new Error("TODO: FailedAssertion");
+          throw new Incident("NotImplementedFillStyle", {style: path.fill});
       }
       this.context.fill();
+      this.context.restore();
     }
 
     if (path.line !== undefined) {
@@ -239,7 +305,7 @@ export class CanvasRenderer implements Renderer {
           this.context.strokeStyle = fromNormalizedColor(path.line.color);
           break;
         default:
-          throw new Error("TODO: FailedAssertion");
+          throw new Incident("NotImplementedLineStyle", {style: path.line});
       }
       this.context.stroke();
     }

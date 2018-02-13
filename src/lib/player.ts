@@ -7,6 +7,7 @@ import { Stage } from "./display/stage";
 import { Renderer } from "./renderers/renderer";
 import { ChildClock } from "./services/clock";
 import { PausableClock, SchedulableClock, TimerHandle } from "./types/clock";
+import { TagType } from "swf-tree/tags/_type";
 
 export interface PlayerOptions {
   movieUrl: string;
@@ -46,7 +47,7 @@ function startLoop(clock: SchedulableClock, frameRate: number, onTick: () => any
       console.warn(`Unable to maintain frameRate (missed by ${-timeout}ms)`);
       timeout = 0;
     }
-    // if (nextTickCount > 2) {
+    // if (nextTickCount > 1) {
     //   return;
     // }
     handle = clock.setTimeout(timeout, handleTick);
@@ -136,7 +137,6 @@ class Player implements PlayerInterface {
   // }
 
   private handleSwfLoaded(movie: Movie): void {
-    console.log(movie);
     if (this.rootLoader === undefined || this.stage !== undefined) {
       console.error(new Incident("Unexpected state at `handleSwfHeaderLoaded`"));
       return;
@@ -144,8 +144,6 @@ class Player implements PlayerInterface {
     this.stage = new Stage(movie.header.frameSize);
     const rootSprite: RootSprite = new RootSprite(movie);
     this.stage.addChild(rootSprite);
-
-    console.log(rootSprite);
 
     this.mainLoop = startLoop(this.clock, movie.header.frameRate.valueOf(), () => this.onTick());
   }
