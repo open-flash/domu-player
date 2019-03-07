@@ -1,4 +1,4 @@
-import { DefineFunction } from "swf-tree/avm1/actions/define-function";
+import { DefineFunction } from "avm1-tree/actions/define-function";
 
 export enum AvmValueType {
   Null,

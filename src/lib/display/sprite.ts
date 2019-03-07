@@ -67,7 +67,7 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
   protected applyTag(tag: Tag): void {
     switch (tag.type) {
       case TagType.DefineButton:
-        this.dictionary.setCharacter(tag.buttonId, createButtonCharacter(tag));
+        this.dictionary.setCharacter(tag.id, createButtonCharacter(tag));
         break;
       case TagType.DefineMorphShape:
         this.dictionary.setCharacter(tag.id, decodeSwfMorphShape(tag));

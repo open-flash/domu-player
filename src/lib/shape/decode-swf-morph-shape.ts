@@ -1,15 +1,13 @@
 import { Incident } from "incident";
 import { UintSize } from "semantic-types";
 import {
+  FillStyleType as SwfFillStyleType,
   MorphFillStyle as SwfMorphFillStyle,
-  MorphFillStyleType as SwfMorphFillStyleType,
   MorphLineStyle as SwfMorphLineStyle,
+  ShapeRecordType as SwfShapeRecordType,
   tags,
 } from "swf-tree";
-import { MorphShapeRecordType } from "swf-tree/morph-shape-records/_type";
-import { MorphCurvedEdge } from "swf-tree/morph-shape-records/morph-curved-edge";
-import { MorphStraightEdge } from "swf-tree/morph-shape-records/morph-straight-edge";
-import { MorphStyleChange } from "swf-tree/morph-shape-records/morph-style-change";
+import { MorphCurvedEdge, MorphStraightEdge, MorphStyleChange } from "swf-tree/shape-records";
 import { CharacterType, MorphShapeCharacter } from "../display/character";
 import { normalizeStraightSRgba } from "./decode-swf-shape";
 import { MorphFillStyle, MorphFillStyleType } from "./morph-fill-style";
@@ -21,17 +19,20 @@ import { MorphShape } from "./morph-shape";
  * Converts a space-optimized morph shape definition to a list of simpler paths for easier processing/rendering
  */
 export function decodeSwfMorphShape(tag: tags.DefineMorphShape): MorphShapeCharacter {
-  const converter: SwfMorphShapeDecoder = new SwfMorphShapeDecoder(tag.shape.fillStyles, tag.shape.lineStyles);
+  const converter: SwfMorphShapeDecoder = new SwfMorphShapeDecoder(
+    tag.shape.initialStyles.fill,
+    tag.shape.initialStyles.line,
+  );
 
   for (const record of tag.shape.records) {
     switch (record.type) {
-      case MorphShapeRecordType.MorphCurvedEdge:
+      case SwfShapeRecordType.CurvedEdge:
         converter.applyCurvedEdge(record);
         break;
-      case MorphShapeRecordType.MorphStraightEdge:
+      case SwfShapeRecordType.StraightEdge:
         converter.applyStraightEdge(record);
         break;
-      case MorphShapeRecordType.MorphStyleChange:
+      case SwfShapeRecordType.StyleChange:
         converter.applyStyleChange(record);
         break;
       default:
@@ -96,11 +97,11 @@ type Segment = StraightSegment | CurvedSegment;
  */
 function decodeFillStyle(old: SwfMorphFillStyle): MorphFillStyle {
   switch (old.type) {
-    case SwfMorphFillStyleType.Solid:
+    case SwfFillStyleType.Solid:
       return {
         type: MorphFillStyleType.Solid,
-        startColor: normalizeStraightSRgba(old.startColor),
-        endColor: normalizeStraightSRgba(old.endColor),
+        startColor: normalizeStraightSRgba(old.color),
+        endColor: normalizeStraightSRgba(old.morphColor),
       };
     default:
       console.warn(old);
@@ -314,19 +315,19 @@ class SwfMorphShapeDecoder {
     if (record.lineStyle !== undefined) {
       this.setLineFillById(record.lineStyle);
     }
-    if (record.startMoveTo !== undefined) {
-      if (record.endMoveTo === undefined) {
+    if (record.moveTo !== undefined) {
+      if (record.morphMoveTo === undefined) {
         // TODO: Use Incident
         throw new Error("Expected endMoveTo to be defined");
       }
-      this.x = [record.startMoveTo.x, record.endMoveTo.x];
-      this.y = [record.startMoveTo.y, record.endMoveTo.y];
+      this.x = [record.moveTo.x, record.morphMoveTo.x];
+      this.y = [record.moveTo.y, record.morphMoveTo.y];
     }
   }
 
   applyStraightEdge(record: MorphStraightEdge): void {
-    const endX: [number, number] = [this.x[0] + record.startDelta.x, this.x[1] + record.endDelta.x];
-    const endY: [number, number] = [this.y[0] + record.startDelta.y, this.y[1] + record.endDelta.y];
+    const endX: [number, number] = [this.x[0] + record.delta.x, this.x[1] + record.morphDelta.x];
+    const endY: [number, number] = [this.y[0] + record.delta.y, this.y[1] + record.morphDelta.y];
 
     if (this.leftFill !== undefined) {
       this.leftFill.segments.push(createStraightSegment(this.x, this.y, endX, endY));
@@ -343,10 +344,10 @@ class SwfMorphShapeDecoder {
   }
 
   applyCurvedEdge(record: MorphCurvedEdge): void {
-    const controlX: [number, number] = [this.x[0] + record.startControlDelta.x, this.x[1] + record.endControlDelta.x];
-    const controlY: [number, number] = [this.y[0] + record.startControlDelta.y, this.y[1] + record.endControlDelta.y];
-    const endX: [number, number] = [this.x[0] + record.startAnchorDelta.x, this.x[1] + record.endAnchorDelta.x];
-    const endY: [number, number] = [this.y[0] + record.startAnchorDelta.y, this.y[1] + record.endAnchorDelta.y];
+    const controlX: [number, number] = [this.x[0] + record.controlDelta.x, this.x[1] + record.morphControlDelta.x];
+    const controlY: [number, number] = [this.y[0] + record.controlDelta.y, this.y[1] + record.morphControlDelta.y];
+    const endX: [number, number] = [this.x[0] + record.anchorDelta.x, this.x[1] + record.morphAnchorDelta.x];
+    const endY: [number, number] = [this.y[0] + record.anchorDelta.y, this.y[1] + record.morphAnchorDelta.y];
 
     if (this.leftFill !== undefined) {
       this.leftFill.segments.push(createCurvedSegment(this.x, this.y, controlX, controlY, endX, endY));

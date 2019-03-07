@@ -21,7 +21,7 @@ import { Shape } from "./shape";
  * Converts a space-optimized shape definition to a list of simpler paths for easier processing/rendering
  */
 export function decodeSwfShape(tag: tags.DefineShape): ShapeCharacter {
-  const converter: SwfShapeDecoder = new SwfShapeDecoder(tag.shape.fillStyles, tag.shape.lineStyles);
+  const converter: SwfShapeDecoder = new SwfShapeDecoder(tag.shape.initialStyles.fill, tag.shape.initialStyles.line);
 
   for (const record of tag.shape.records) {
     switch (record.type) {
@@ -326,11 +326,9 @@ class SwfShapeDecoder {
   }
 
   applyStyleChange(record: shapeRecords.StyleChange): void {
-    // TODO: Support only updating one of fillStyle or lineStyle
-    if (record.fillStyles !== undefined || record.lineStyles !== undefined) {
-      // TODO: Reuse old style instead of overriding if missing
-      const newFills: SwfFillStyle[] = record.fillStyles !== undefined ? record.fillStyles : [];
-      const newLines: SwfLineStyle[] = record.lineStyles !== undefined ? record.lineStyles : [];
+    if (record.newStyles !== undefined) {
+      const newFills: SwfFillStyle[] = record.newStyles.fill;
+      const newLines: SwfLineStyle[] = record.newStyles.line;
       this.setNewStyles(newFills, newLines);
     }
     if (record.leftFill !== undefined) {

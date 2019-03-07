@@ -1,14 +1,14 @@
 import { Uint16 } from "semantic-types";
-import { ButtonCondAction } from "swf-tree/buttons/button-cond-action";
+import { ButtonCondAction } from "swf-tree/button/button-cond-action";
 import { ImageType } from "swf-tree/image-type";
+import { SpriteTag } from "swf-tree/sprite-tag";
 import { TagType } from "swf-tree/tags/_type";
 import { DefineBitmap } from "swf-tree/tags/define-bitmap";
 import { DefineButton } from "swf-tree/tags/define-button";
+import { DefineSprite } from "swf-tree/tags/define-sprite";
 import { PlaceObject } from "swf-tree/tags/place-object";
 import { MorphPath } from "../shape/morph-path";
 import { Path } from "../shape/path";
-import { DefineSprite } from "swf-tree/tags/define-sprite";
-import { SpriteTag } from "swf-tree/sprite-tag";
 
 export enum CharacterType {
   Button,
@@ -48,25 +48,25 @@ export interface BitmapCharacter {
  * You should place all the corresponding sprites when the button is in a given state
  */
 export interface ButtonStates {
-  up: PlaceObject[];
-  over: PlaceObject[];
-  down: PlaceObject[];
-  hitTest: PlaceObject[];
+  readonly up: PlaceObject[];
+  readonly over: PlaceObject[];
+  readonly down: PlaceObject[];
+  readonly hitTest: PlaceObject[];
 }
 
 export interface ButtonCharacter {
-  id: Uint16;
-  type: CharacterType.Button;
-  trackAsMenu: boolean;
-  states: ButtonStates;
-  actions: ButtonCondAction[];
+  readonly id: Uint16;
+  readonly type: CharacterType.Button;
+  readonly trackAsMenu: boolean;
+  readonly states: ButtonStates;
+  readonly actions: ReadonlyArray<ButtonCondAction>;
 }
 
 export interface SpriteCharacter {
-  id: Uint16;
-  type: CharacterType.Sprite;
-  frameCount: Uint16;
-  tags: SpriteTag[];
+  readonly id: Uint16;
+  readonly type: CharacterType.Sprite;
+  readonly frameCount: Uint16;
+  readonly tags: ReadonlyArray<SpriteTag>;
 }
 
 export interface MorphShapeCharacter {
@@ -97,7 +97,7 @@ export function createButtonCharacter(tag: DefineButton): ButtonCharacter {
     // TODO: Blend mode and filters
     const command: PlaceObject = {
       type: TagType.PlaceObject,
-      isMove: false,
+      isUpdate: false,
       depth: buttonRecord.depth,
       characterId: buttonRecord.characterId,
       matrix: buttonRecord.matrix,
@@ -122,7 +122,7 @@ export function createButtonCharacter(tag: DefineButton): ButtonCharacter {
 
   return {
     type: CharacterType.Button,
-    id: tag.buttonId,
+    id: tag.id,
     trackAsMenu: tag.trackAsMenu,
     states,
     actions: tag.actions,

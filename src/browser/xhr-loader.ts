@@ -1,4 +1,4 @@
-import { parseBytes } from "swf-parser";
+import { movieFromBytes } from "swf-parser";
 import { Movie } from "swf-tree";
 
 export async function getMovie(uri: string): Promise<Movie> {
@@ -10,7 +10,7 @@ export async function getMovie(uri: string): Promise<Movie> {
       if (this.status === 200) {
         try {
           const response: ArrayBuffer = this.response;
-          const movie: Movie = parseBytes(new Uint8Array(response));
+          const movie: Movie = movieFromBytes(new Uint8Array(response));
           resolve(movie);
         } catch (err) {
           reject(err);

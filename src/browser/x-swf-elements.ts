@@ -1,5 +1,5 @@
-import { FixedHTMLEmbedElement } from "./html-embed-element";
 import { createDomuPlayer, Dimensions, DomuPlayer } from "./domu-player";
+import { FixedHTMLEmbedElement } from "./html-embed-element";
 
 // Default size of an <embed> element (Firefox 59)
 const DEFAULT_WIDTH: number = 240;
