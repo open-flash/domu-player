@@ -7,7 +7,6 @@ import { Stage } from "./display/stage";
 import { Renderer } from "./renderers/renderer";
 import { ChildClock } from "./services/clock";
 import { PausableClock, SchedulableClock, TimerHandle } from "./types/clock";
-import { TagType } from "swf-tree/tags/_type";
 
 export interface PlayerOptions {
   movieUrl: string;
@@ -44,7 +43,7 @@ function startLoop(clock: SchedulableClock, frameRate: number, onTick: () => any
     let timeout: number = targetTime - clock.getTime();
     if (timeout < 0) {
       shift += -timeout;
-      console.warn(`Unable to maintain frameRate (missed by ${-timeout}ms)`);
+      // console.warn(`Unable to maintain frameRate (missed by ${-timeout}ms)`);
       timeout = 0;
     }
     // if (nextTickCount > 1) {

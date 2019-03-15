@@ -139,7 +139,7 @@ function decodeFillStyle(swfStyle: SwfFillStyle): FillStyle {
  */
 function decodeLineStyle(old: SwfLineStyle): LineStyle {
   // TODO...
-  return {type: LineStyleType.Solid, color: {r: 0, g: 0, b: 0, a: 1}, width: 50};
+  return {type: LineStyleType.Solid, color: {r: 0, g: 0, b: 0, a: 1}, width: old.width};
 }
 
 /**
@@ -336,6 +336,9 @@ class SwfShapeDecoder {
     }
     if (record.rightFill !== undefined) {
       this.setRightFillById(record.rightFill);
+    }
+    if (record.lineStyle !== undefined) {
+      this.setLineFillById(record.lineStyle);
     }
     if (record.moveTo !== undefined) {
       this.x = record.moveTo.x;

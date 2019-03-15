@@ -1,7 +1,5 @@
-import {FillStyle} from "./fill-style";
-import {LineStyle} from "./line-style";
-import {MorphLineStyle} from "./morph-line-style";
-import {MorphFillStyle} from "./morph-fill-style";
+import { MorphFillStyle } from "./morph-fill-style";
+import { MorphLineStyle } from "./morph-line-style";
 
 export enum MorphCommandType {
   LineTo,
