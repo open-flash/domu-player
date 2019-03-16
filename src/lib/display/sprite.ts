@@ -118,6 +118,9 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
 
   protected placeObject(tag: PlaceObjectSwfTag, character: Character): void {
     if (this.getChildAtDepth(tag.depth) !== undefined) {
+      // TODO: Warn on depth collision. This is pretty common at the moment because we do not
+      //       reset the scene state when looping. Once looping resets, collisions should be rare.
+      // console.warn("DepthCollision")
       return;
     }
     switch (character.type) {
@@ -231,6 +234,9 @@ export class ChildSprite extends AbstractSprite {
     for (const tag of frame.tags) {
       this.applyTag(tag);
     }
+    for (const child of this.children) {
+      child.nextFrame(isMainLoop, runScripts);
+    }
   }
 }
 
@@ -240,7 +246,7 @@ export class ChildSprite extends AbstractSprite {
 export class DynamicSprite extends AbstractSprite {
   readonly frameCount: Uint16;
 
-  // Note: this frame 0-indexed (the frames used by the actions are 1-indexed, ex: MovieClip::currentFrame);
+  // Note: this frame is 0-indexed (the frames used by the actions are 1-indexed, ex: MovieClip::currentFrame);
   currentFrameIndex: number;
 
   private readonly frames: Frame[];
