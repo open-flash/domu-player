@@ -1,16 +1,6 @@
-import { DisplayObjectInterface } from "../types/display-object";
-import { DisplayObjectVisitor } from "./display-object-visitor";
+import { MorphShape } from "./morph-shape";
+import { Shape } from "./shape";
+import { SimpleButton } from "./simple-button";
+import { Sprite } from "./sprite";
 
-const INITIAL_DEPTH: number = -1;
-
-export abstract class DisplayObject implements DisplayObjectInterface {
-  depth?: number;
-
-  constructor() {
-    this.depth = undefined;
-  }
-
-  abstract nextFrame(isMainLoop: boolean, runScripts: boolean): void;
-
-  abstract visit<R>(visitor: DisplayObjectVisitor<R>): R;
-}
+export type DisplayObject = MorphShape | SimpleButton | Shape | Sprite;

@@ -1,11 +1,18 @@
 import { Incident } from "incident";
+import {
+  DisplayObjectContainer as RendererDisplayObjectContainer,
+} from "swf-renderer/display/display-object-container";
+import { DisplayObjectType } from "swf-renderer/display/display-object-type";
 import { DisplayObject } from "./display-object";
+import { DisplayObjectBase } from "./display-object-base";
 
-export abstract class DisplayObjectContainer extends DisplayObject {
+export abstract class DisplayObjectContainer extends DisplayObjectBase implements RendererDisplayObjectContainer {
+  readonly type: DisplayObjectType.Container;
   readonly children: DisplayObject[];
 
   constructor() {
     super();
+    this.type = DisplayObjectType.Container;
     this.children = [];
   }
 
@@ -38,7 +45,7 @@ export abstract class DisplayObjectContainer extends DisplayObject {
     this.children.splice(index, 0, child);
   }
 
-  getChildAtDepth(depth: number): DisplayObject | undefined {
+  getChildAtDepth(depth: number): DisplayObjectBase | undefined {
     for (const child of this.children) {
       if (child.depth !== undefined && child.depth > depth) {
         break;

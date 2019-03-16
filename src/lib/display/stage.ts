@@ -1,7 +1,5 @@
-import { Incident } from "incident";
 import { Rect } from "swf-tree/rect";
-// import { MovieClip } from "./movie-clip";
-import { SRgb8 } from "swf-tree/s-rgb8";
+import { StraightSRgba8 } from "swf-tree/straight-s-rgba8";
 import { DisplayObjectContainer } from "./display-object-container";
 import { DisplayObjectVisitor } from "./display-object-visitor";
 
@@ -11,18 +9,14 @@ export type TwipsDist = number;
  */
 export type VPxDist = number;
 
-export interface StageInterface {
-  backgroundColor: SRgb8;
-}
-
 // TODO: Get rid of these default values (they should never be needed)
-const DEFAULT_BACKGROUND_COLOR: Readonly<SRgb8> = Object.freeze({r: 255, g: 255, b: 255});
+const DEFAULT_BACKGROUND_COLOR: Readonly<StraightSRgba8> = Object.freeze({r: 255, g: 255, b: 255, a: 255});
 
 /**
  * A stage represent a drawing area. It holds the root of its display tree.
  */
 export class Stage extends DisplayObjectContainer {
-  backgroundColor: SRgb8;
+  backgroundColor: StraightSRgba8;
   width: VPxDist;
   height: VPxDist;
 

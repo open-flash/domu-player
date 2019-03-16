@@ -4,18 +4,16 @@ import { Movie as SwfMovie } from "swf-tree/movie";
 import { Tag } from "swf-tree/tag";
 import { TagType } from "swf-tree/tags/_type";
 import { PlaceObject as PlaceObjectSwfTag } from "swf-tree/tags/place-object";
-import { decodeSwfMorphShape } from "../shape/decode-swf-morph-shape";
-import { decodeSwfShape } from "../shape/decode-swf-shape";
 import {
   Character,
   CharacterDictionary,
   CharacterType,
   createBitmapCharacter,
-  createButtonCharacter,
+  createButtonCharacter, createMorphShapeCharacter, createShapeCharacter,
   createSpriteCharacter,
   SpriteCharacter,
 } from "./character";
-import { DisplayObject } from "./display-object";
+import { DisplayObjectBase } from "./display-object-base";
 import { DisplayObjectContainer } from "./display-object-container";
 import { DisplayObjectVisitor } from "./display-object-visitor";
 import { collectFrames, Frame } from "./frame";
@@ -70,13 +68,13 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
         this.dictionary.setCharacter(tag.id, createButtonCharacter(tag));
         break;
       case TagType.DefineMorphShape:
-        this.dictionary.setCharacter(tag.id, decodeSwfMorphShape(tag));
+        this.dictionary.setCharacter(tag.id, createMorphShapeCharacter(tag));
         break;
       case TagType.DefineBitmap:
         this.dictionary.setCharacter(tag.id, createBitmapCharacter(tag));
         break;
       case TagType.DefineShape:
-        this.dictionary.setCharacter(tag.id, decodeSwfShape(tag));
+        this.dictionary.setCharacter(tag.id, createShapeCharacter(tag));
         break;
       case TagType.DefineSprite:
         this.dictionary.setCharacter(tag.id, createSpriteCharacter(tag));
@@ -94,7 +92,7 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
             console.warn("Expected depth to be defined");
             break;
           }
-          const displayObject: DisplayObject | undefined = this.getChildAtDepth(tag.depth);
+          const displayObject: DisplayObjectBase | undefined = this.getChildAtDepth(tag.depth);
           if (displayObject === undefined) {
             console.warn(`DisplayObject not found at depth: ${tag.depth}`);
             break;

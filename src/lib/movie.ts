@@ -1,14 +1,14 @@
 import { Header as SwfHeader } from "swf-tree/header";
 import { Tag as SwfTag } from "swf-tree/tag";
-import { Scheduler } from "./types/scheduler";
-import { MovieClip } from "./display/movie-clip";
 import { collectFrames } from "./display/frame";
+import { MovieClip } from "./display/movie-clip";
 import { Stage } from "./display/stage";
+import { Scheduler } from "./types/scheduler";
 
 export interface MovieInterface {
   play(): void;
   stop(): void;
-  handleEvent(): void;
+  handleEvent(event: any): void;
 }
 
 export class Movie implements MovieInterface {
@@ -25,7 +25,7 @@ export class Movie implements MovieInterface {
   }
 
   play(): void {
-    this.scheduler.run
+    this.scheduler.run();
   }
 
   stop(): void {

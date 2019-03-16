@@ -9,7 +9,11 @@ export function getWebpackConfiguration(options: any, webpackOptions: any): any 
 
   const isProduction: boolean = Boolean(options.production);
 
-  configs.browser = webpackMerge({}, <any>getCommonPartial(isProduction), <any>getBrowserPartial(isProduction));
+  configs.browser = webpackMerge(
+    {mode: "development"},
+    getCommonPartial(isProduction),
+    getBrowserPartial(isProduction),
+  );
 
   const builds: any = [];
   builds.push(configs.browser);

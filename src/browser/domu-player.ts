@@ -1,9 +1,9 @@
 import elementResizeDetector from "element-resize-detector";
 import { Incident } from "incident";
-import { CanvasRenderer } from "../lib/renderers/canvas-renderer";
 import { PlayerInterface, startPlayer } from "../lib/player";
 import { SchedulableClock } from "../lib/types/clock";
 import { SYSTEM_CLOCK } from "../lib/services/clock";
+import { CanvasRenderer } from "swf-renderer/renderers/canvas-renderer";
 
 export interface Dimensions {
   width: number;
@@ -141,7 +141,7 @@ export class DomuPlayer {
       if (context === null) {
         throw new Incident("CanvasContextAcquisition", "Unable to acquire canvas context");
       }
-      this.renderer = new CanvasRenderer(context, this.canvas.width, this.canvas.height);
+      this.renderer = new CanvasRenderer(context);
       this.clock = options.clock !== undefined ? options.clock : SYSTEM_CLOCK;
       this.player = undefined;
     } catch (err) {
@@ -170,11 +170,6 @@ export class DomuPlayer {
     this.canvas.height = height;
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
-    // TODO: Fix this, this method is called as a side-effect of initializing the size of the viewport
-    //       (before the creation of the renderer)
-    if (this.renderer !== undefined) {
-      this.renderer.updateSize(width, height);
-    }
   }
 }
 

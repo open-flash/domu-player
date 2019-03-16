@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 import { Movie } from "swf-tree/movie";
 import { getMovie } from "../../browser/xhr-loader"; // TODO: Abstract this
-import { DisplayObject } from "./display-object";
+import { DisplayObjectBase } from "./display-object-base";
 import { DisplayObjectVisitor } from "./display-object-visitor";
 import { Sprite } from "./sprite";
 
@@ -13,7 +13,7 @@ export enum LoaderEvent {
 /**
  * You can insert a loader in the display tree, it will display data as it loads it.
  */
-export class SwfLoader extends DisplayObject {
+export class SwfLoader extends DisplayObjectBase {
   readonly url: string;
   readonly events: EventEmitter;
   sprite?: Sprite;

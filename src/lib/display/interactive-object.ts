@@ -1,4 +1,4 @@
-import { DisplayObject } from "./display-object";
+import { DisplayObjectBase } from "./display-object-base";
 
-export abstract class InteractiveObject extends DisplayObject {
+export abstract class InteractiveObject extends DisplayObjectBase {
 }

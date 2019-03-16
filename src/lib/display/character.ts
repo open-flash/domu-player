@@ -5,10 +5,10 @@ import { SpriteTag } from "swf-tree/sprite-tag";
 import { TagType } from "swf-tree/tags/_type";
 import { DefineBitmap } from "swf-tree/tags/define-bitmap";
 import { DefineButton } from "swf-tree/tags/define-button";
+import { DefineMorphShape } from "swf-tree/tags/define-morph-shape";
+import { DefineShape } from "swf-tree/tags/define-shape";
 import { DefineSprite } from "swf-tree/tags/define-sprite";
 import { PlaceObject } from "swf-tree/tags/place-object";
-import { MorphPath } from "../shape/morph-path";
-import { Path } from "../shape/path";
 
 export enum CharacterType {
   Button,
@@ -69,16 +69,18 @@ export interface SpriteCharacter {
   readonly tags: ReadonlyArray<SpriteTag>;
 }
 
+// TODO: Use `DefineMorphShape` directly instead of wrapping it in `MorphShapeCharacter`
 export interface MorphShapeCharacter {
-  id: Uint16;
-  type: CharacterType.MorphShape;
-  paths: MorphPath[];
+  readonly id: Uint16;
+  readonly type: CharacterType.MorphShape;
+  readonly definition: DefineMorphShape;
 }
 
+// TODO: Use `DefineShape` directly instead of wrapping it in `ShapeCharacter`
 export interface ShapeCharacter {
-  id: Uint16;
-  type: CharacterType.Shape;
-  paths: Path[];
+  readonly id: Uint16;
+  readonly type: CharacterType.Shape;
+  readonly definition: DefineShape;
 }
 
 export type Character = BitmapCharacter | ButtonCharacter | MorphShapeCharacter | ShapeCharacter | SpriteCharacter;
@@ -129,6 +131,14 @@ export function createButtonCharacter(tag: DefineButton): ButtonCharacter {
   };
 }
 
+export function createMorphShapeCharacter(tag: DefineMorphShape): MorphShapeCharacter {
+  return {
+    type: CharacterType.MorphShape,
+    id: tag.id,
+    definition: tag,
+  };
+}
+
 export function createBitmapCharacter(tag: DefineBitmap): BitmapCharacter {
   return {
     type: CharacterType.Bitmap,
@@ -137,6 +147,14 @@ export function createBitmapCharacter(tag: DefineBitmap): BitmapCharacter {
     height: tag.height,
     mediaType: tag.mediaType,
     data: tag.data,
+  };
+}
+
+export function createShapeCharacter(tag: DefineShape): ShapeCharacter {
+  return {
+    type: CharacterType.Shape,
+    id: tag.id,
+    definition: tag,
   };
 }
 

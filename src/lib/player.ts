@@ -1,10 +1,10 @@
 import { Incident } from "incident";
+import { Renderer } from "swf-renderer/renderer";
 import { Movie } from "swf-tree/movie";
 import { Avm } from "./avm/avm";
 import { LoaderEvent, loadSwf, SwfLoader } from "./display/loader";
 import { RootSprite } from "./display/sprite";
 import { Stage } from "./display/stage";
-import { Renderer } from "./renderers/renderer";
 import { ChildClock } from "./services/clock";
 import { PausableClock, SchedulableClock, TimerHandle } from "./types/clock";
 
