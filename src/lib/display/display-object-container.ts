@@ -28,6 +28,7 @@ export abstract class DisplayObjectContainer extends DisplayObjectBase implement
     this.children.splice(index, 0, child);
   }
 
+  // TODO: Handle collisions (we should replace the child)
   addChildAtDepth(child: DisplayObject, depth: number): void {
     depth = depth | 0; // Integer cast
     let index: number = this.children.length;
@@ -43,6 +44,19 @@ export abstract class DisplayObjectContainer extends DisplayObjectBase implement
     }
     child.depth = depth;
     this.children.splice(index, 0, child);
+  }
+
+  // Noop if there's nothing at the provided depth
+  removeChildAtDepth(depth: number): void {
+    // TODO: The linear search could be replaced by a binary search
+    for (let i: number = 0; i < this.children.length; i++) {
+      const child: DisplayObjectBase = this.children[i];
+      if (child.depth === depth) {
+        child.depth = undefined;
+        this.children.splice(i, 1);
+        break;
+      }
+    }
   }
 
   getChildAtDepth(depth: number): DisplayObjectBase | undefined {

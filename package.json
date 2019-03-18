@@ -16,10 +16,11 @@
   "dependencies": {
     "@types/element-resize-detector": "^1.1.2",
     "avm1-tree": "^0.2.0",
+    "avmore": "^0.0.2",
     "element-resize-detector": "^1.1.15",
     "semantic-types": "^0.1.1",
     "swf-parser": "^0.2.1",
-    "swf-renderer": "^0.0.1",
+    "swf-renderer": "^0.0.2",
     "swf-tree": "^0.2.0"
   },
   "devDependencies": {

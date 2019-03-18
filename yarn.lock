@@ -493,6 +493,16 @@ atob@^2.1.1:
   resolved "https://registry.yarnpkg.com/atob/-/atob-2.1.2.tgz#6d9517eb9e030d2436666651e86bd9f6f13533c9"
   integrity sha512-Wm6ukoaOGJi/73p/cl2GvLjTI5JM1k/O14isD73YML8StrH/7/lRFgmg8nICZgD3bZZvjwCGxtMOD3wWNAu8cg==
 
+avm1-parser@^0.2.0:
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/avm1-parser/-/avm1-parser-0.2.0.tgz#7e05d1ce383cdb4bf2d8b5b8a2bcb9d04cbc48a4"
+  integrity sha512-1RDhcmRfR1MRlgUgTBh8VlzsXHv6xY+FJtBtySvN7XNHOxa3HOsr/QXyEHmhGdkJPliK5TrXed02SuwvgB2q2A==
+  dependencies:
+    "@open-flash/stream" "^0.1.0"
+    avm1-tree "^0.2.0"
+    incident "^3.2.0"
+    semantic-types "^0.1.1"
+
 avm1-tree@^0.2.0:
   version "0.2.0"
   resolved "https://registry.yarnpkg.com/avm1-tree/-/avm1-tree-0.2.0.tgz#ad75c14fbe295dd54c54e53fbdd256df8256030c"
@@ -502,6 +512,14 @@ avm1-tree@^0.2.0:
     kryo "^0.8.1"
     semantic-types "^0.1.1"
     ts-tagged "^1.0.0"
+
+avmore@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/avmore/-/avmore-0.0.2.tgz#de8c487d1b2981f18fd8764e4e426e8eb0e57228"
+  integrity sha512-xwUSy1W2zFCYxHaP2XdITZv1joMiLs/uLZkm8kMDsVQvTO8ReDsUGPo1E9xVybJR2xUDjBw56XkO8+pRVVBmbw==
+  dependencies:
+    avm1-parser "^0.2.0"
+    avm1-tree "^0.2.0"
 
 aws-sign2@~0.7.0:
   version "0.7.0"
@@ -977,12 +995,12 @@ combined-stream@^1.0.6, combined-stream@~1.0.6:
   dependencies:
     delayed-stream "~1.0.0"
 
-commander@2.17.x, commander@~2.17.1:
+commander@2.17.x:
   version "2.17.1"
   resolved "https://registry.yarnpkg.com/commander/-/commander-2.17.1.tgz#bd77ab7de6de94205ceacc72f1716d29f20a77bf"
   integrity sha512-wPMUt6FnH2yzG95SA6mzjQOEKUU3aLaDEmzs1ti+1E9h+CsrZghRlqEM/EJ4KscsQVG8uNN4uVreUeT8+drlgg==
 
-commander@^2.12.1, commander@^2.19.0:
+commander@^2.12.1, commander@^2.19.0, commander@~2.19.0:
   version "2.19.0"
   resolved "https://registry.yarnpkg.com/commander/-/commander-2.19.0.tgz#f6198aa84e5b83c46054b94ddedbfed5ee9ff12a"
   integrity sha512-6tvAOO+D6OENvRAh524Dh9jcfKTYDQAqvqezbCW82xj5X0pSrcpxtvRKHLG0yBY6SD7PSDrJaj+0AiOcKVd1Xg==
@@ -1453,9 +1471,9 @@ escape-string-regexp@^1.0.2, escape-string-regexp@^1.0.5:
   integrity sha1-G2HAViGQqN/2rjuyzwIAyhMLhtQ=
 
 eslint-scope@^4.0.0:
-  version "4.0.2"
-  resolved "https://registry.yarnpkg.com/eslint-scope/-/eslint-scope-4.0.2.tgz#5f10cd6cabb1965bf479fa65745673439e21cb0e"
-  integrity sha512-5q1+B/ogmHl8+paxtOKx38Z8LtWkVGuNt3+GQNErqwLl6ViNp/gdJGMCjZNxZ8j/VYjDNZ2Fo+eQc1TAVPIzbg==
+  version "4.0.3"
+  resolved "https://registry.yarnpkg.com/eslint-scope/-/eslint-scope-4.0.3.tgz#ca03833310f6889a3264781aa82e63eb9cfe7848"
+  integrity sha512-p7VutNr1O/QrxysMo3E45FjYDTeXBy0iTltPFNSqKAIfjDSXC+4dj+qfyuD8bfAXrW/y6lW3O76VaYNPKfpKrg==
   dependencies:
     esrecurse "^4.1.0"
     estraverse "^4.1.1"
@@ -3942,10 +3960,10 @@ swf-parser@^0.2.1:
     semantic-types "^0.1.1"
     swf-tree "^0.2.0"
 
-swf-renderer@^0.0.1:
-  version "0.0.1"
-  resolved "https://registry.yarnpkg.com/swf-renderer/-/swf-renderer-0.0.1.tgz#76909e1387ad46cd93da6a9736003e915e28da4a"
-  integrity sha512-Y040tgNnBfFs1o+ziOTE4JSKWvC+5FAkWSH+Kw/Is2anKZrzm7k8cag+8A6AvqhCHBguUpYMB85t6b6AMKIPiQ==
+swf-renderer@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/swf-renderer/-/swf-renderer-0.0.2.tgz#ba9ca56641cf08dedb2085d93dc62188d31c541f"
+  integrity sha512-D+/UmqqAqHKnWU/UkxVY+7dNU2r7kq0Ho/8whDBTuQYsr4Ak3wlwygnz6RwjUw/SiBQm5PVSrU3fCuypwzkxxw==
   dependencies:
     canvas "^2.4.0"
     furi "^1.3.0"
@@ -4203,11 +4221,11 @@ typescript@^3.3.3333:
   integrity sha512-JjSKsAfuHBE/fB2oZ8NxtRTk5iGcg6hkYXMnZ3Wc+b2RSqejEqTaem11mHASMnFilHrax3sLK0GDzcJrekZYLw==
 
 uglify-js@3.4.x, uglify-js@^3.0.0:
-  version "3.4.9"
-  resolved "https://registry.yarnpkg.com/uglify-js/-/uglify-js-3.4.9.tgz#af02f180c1207d76432e473ed24a28f4a782bae3"
-  integrity sha512-8CJsbKOtEbnJsTyv6LE6m6ZKniqMiFWmm9sRbopbkGs3gMPPfd3Fh8iIA4Ykv5MgaTbqHr4BaoGLJLZNhsrW1Q==
+  version "3.4.10"
+  resolved "https://registry.yarnpkg.com/uglify-js/-/uglify-js-3.4.10.tgz#9ad9563d8eb3acdfb8d38597d2af1d815f6a755f"
+  integrity sha512-Y2VsbPVs0FIshJztycsO2SfPk7/KAF/T72qzv9u5EpQ4kB2hQoHlhNQTsNyy6ul7lQtqJN/AoWeS23OzEiEFxw==
   dependencies:
-    commander "~2.17.1"
+    commander "~2.19.0"
     source-map "~0.6.1"
 
 uglifyjs-webpack-plugin@^2.1.2:
@@ -4377,9 +4395,9 @@ watchpack@^1.5.0:
     neo-async "^2.5.0"
 
 webpack-cli@^3.2.3:
-  version "3.2.3"
-  resolved "https://registry.yarnpkg.com/webpack-cli/-/webpack-cli-3.2.3.tgz#13653549adfd8ccd920ad7be1ef868bacc22e346"
-  integrity sha512-Ik3SjV6uJtWIAN5jp5ZuBMWEAaP5E4V78XJ2nI+paFPh8v4HPSwo/myN0r29Xc/6ZKnd2IdrAlpSgNOu2CDQ6Q==
+  version "3.3.0"
+  resolved "https://registry.yarnpkg.com/webpack-cli/-/webpack-cli-3.3.0.tgz#55c8a74cae1e88117f9dda3a801c7272e93ca318"
+  integrity sha512-t1M7G4z5FhHKJ92WRKwZ1rtvi7rHc0NZoZRbSkol0YKl4HvcC8+DsmGDmK7MmZxHSAetHagiOsjOB6MmzC2TUw==
   dependencies:
     chalk "^2.4.1"
     cross-spawn "^6.0.5"
@@ -4391,7 +4409,7 @@ webpack-cli@^3.2.3:
     loader-utils "^1.1.0"
     supports-color "^5.5.0"
     v8-compile-cache "^2.0.2"
-    yargs "^12.0.4"
+    yargs "^12.0.5"
 
 webpack-log@^2.0.0:
   version "2.0.0"
@@ -4525,7 +4543,7 @@ yargs-parser@^11.1.1:
     camelcase "^5.0.0"
     decamelize "^1.2.0"
 
-yargs@^12.0.4:
+yargs@^12.0.5:
   version "12.0.5"
   resolved "https://registry.yarnpkg.com/yargs/-/yargs-12.0.5.tgz#05f5997b609647b64f66b81e3b4b10a368e7ad13"
   integrity sha512-Lhz8TLaYnxq/2ObqHDql8dX8CJi97oHxrjUcYtzKbbykPtVW9WB+poxI+NM2UIzsMgNCZTIf0AQwsjK5yMAqZw==
