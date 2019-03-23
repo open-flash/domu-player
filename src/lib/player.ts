@@ -27,34 +27,33 @@ interface Loop {
  */
 function startLoop(clock: SchedulableClock, frameRate: number, onTick: () => any): Loop {
   const startTime: number = clock.getTime();
+  let oldTime: number = startTime;
   let shift: number = 0;
   let nextTickCount: number = 0;
   let handle: TimerHandle | undefined = undefined;
-  const forceFrameRate: boolean = true;
 
   function handleTick(): void {
-    // for (let _: number = 0; _ < 145; _++) {
-    //   onTick();
-    // }
     onTick();
     scheduleNextTick();
-    // destroy();
   }
 
   function scheduleNextTick(): void {
+    const curTime: number = clock.getTime();
+    if (nextTickCount > 0 && curTime === oldTime) {
+      // tslint:disable-next-line:max-line-length
+      const infoUri: string = "https://developer.mozilla.org/en-US/docs/Web/API/DOMHighResTimeStamp#Reduced_time_precision";
+      console.warn(`\`curTime === oldTime\`, possible reduced time precision, see ${infoUri}`);
+    }
+    oldTime = curTime;
+    // console.log(clock.getTime());
     nextTickCount++;
     const targetTime: number = startTime + shift + (1000 * nextTickCount / frameRate);
     let timeout: number = targetTime - clock.getTime();
     if (timeout < 0) {
-      if (!forceFrameRate) {
-        shift += -timeout;
-      }
-      // console.warn(`Unable to maintain frameRate (missed by ${-timeout}ms)`);
+      shift += -timeout;
+      console.warn(`Unable to maintain frameRate (missed by ${-timeout}ms)`);
       timeout = 0;
     }
-    // if (nextTickCount > 1) {
-    //   return;
-    // }
     handle = clock.setTimeout(timeout, handleTick);
   }
 
