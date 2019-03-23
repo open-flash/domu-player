@@ -1,3 +1,5 @@
+import { Sprite } from "../display/sprite";
+
 export interface Avm1Context {
-  executeActions(thisArg: null, actions: Uint8Array): void;
+  executeActions(target: Sprite, actions: Uint8Array): void;
 }

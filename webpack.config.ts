@@ -10,7 +10,7 @@ export function getWebpackConfiguration(options: any, webpackOptions: any): any 
   const isProduction: boolean = Boolean(options.production);
 
   configs.browser = webpackMerge(
-    {mode: "development"},
+    // {mode: "development"},
     getCommonPartial(isProduction),
     getBrowserPartial(isProduction),
   );
@@ -21,4 +21,5 @@ export function getWebpackConfiguration(options: any, webpackOptions: any): any 
   return builds;
 }
 
+// tslint:disable-next-line:no-default-export
 export default getWebpackConfiguration;

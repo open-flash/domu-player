@@ -2,7 +2,7 @@ import { Uint16 } from "semantic-types";
 import { Matrix } from "swf-tree/matrix";
 import { Movie as SwfMovie } from "swf-tree/movie";
 import { Tag } from "swf-tree/tag";
-import { DoAction, RemoveObject } from "swf-tree/tags";
+import { DoAction, FrameLabel, RemoveObject } from "swf-tree/tags";
 import { TagType } from "swf-tree/tags/_type";
 import { PlaceObject as PlaceObjectSwfTag } from "swf-tree/tags/place-object";
 import { createAvm1Context } from "../avm/avm";
@@ -12,10 +12,13 @@ import {
   CharacterDictionary,
   CharacterType,
   createBitmapCharacter,
-  createButtonCharacter, createMorphShapeCharacter, createShapeCharacter,
+  createButtonCharacter,
+  createMorphShapeCharacter,
+  createShapeCharacter,
   createSpriteCharacter,
   SpriteCharacter,
 } from "./character";
+import { DisplayObject } from "./display-object";
 import { DisplayObjectBase } from "./display-object-base";
 import { DisplayObjectContainer } from "./display-object-container";
 import { DisplayObjectVisitor } from "./display-object-visitor";
@@ -29,12 +32,30 @@ export type CharacterRef = {root: true} | {root: false; id?: Uint16};
 export interface Sprite extends DisplayObjectContainer {
   matrix?: Matrix;
   readonly character: CharacterRef;
+  readonly namedChildren: Map<string, Sprite>;
+
+  /**
+   * @param frame Frame index (0-index or 1-index?) or frame label
+   */
+  gotoAndPlay(frame: number | string): void;
+
+  /**
+   * Stop playback
+   */
+  stop(): void;
 }
 
 export abstract class AbstractSprite extends DisplayObjectContainer implements Sprite {
   public readonly character: CharacterRef;
+  public readonly namedChildren: Map<string, Sprite>;
+
+  /**
+   * From name to 0-based frame index
+   */
+  public readonly frameLabels: Map<string, number>;
 
   protected readonly dictionary: CharacterDictionary;
+  protected stopped: boolean;
   private readonly avm1Ctx: Avm1Context;
 
   constructor(dictionary: CharacterDictionary, character: CharacterRef, avm1Ctx: Avm1Context) {
@@ -42,6 +63,9 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
     this.dictionary = dictionary;
     this.character = character;
     this.avm1Ctx = avm1Ctx;
+    this.namedChildren = new Map();
+    this.frameLabels = new Map();
+    this.stopped = false;
   }
 
   // processTags(tags: SwfTag[], backward: boolean): void {
@@ -60,7 +84,25 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
   // }
 
   nextFrame(isMainLoop: boolean, runScripts: boolean): void {
-    console.warn("NotImplemented");
+    console.warn("NotImplemented: Sprite#nextFrame");
+  }
+
+  gotoAndPlay(frame: number | string): void {
+    this.stopped = false;
+    if (typeof frame === "string") {
+      const frameIndex: number | undefined = this.frameLabels.get(frame);
+      if (frameIndex === undefined) {
+        throw new Error(`NotImplemented: UnknownFrameLabel: ${frame}`);
+      }
+      // TODO: Clean this up!!!
+      (this as any).currentFrameIndex = frameIndex - 1; // -1 because `nextFrame` starts with an increment
+    } else {
+      console.log("NotImplemented: Sprite#gotoAndPlay on non-string frame");
+    }
+  }
+
+  stop(): void {
+    this.stopped = true;
   }
 
   visit<R>(visitor: DisplayObjectVisitor<R>): R {
@@ -79,7 +121,7 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
         this.dictionary.setCharacter(tag.id, createBitmapCharacter(tag));
         break;
       case TagType.DoAction:
-        this.applyDoAction(tag);
+        this.execDoAction(tag);
         break;
       case TagType.DefineShape:
         this.dictionary.setCharacter(tag.id, createShapeCharacter(tag));
@@ -87,39 +129,17 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
       case TagType.DefineSprite:
         this.dictionary.setCharacter(tag.id, createSpriteCharacter(tag));
         break;
-      case TagType.PlaceObject: {
-        if (tag.characterId !== undefined) {
-          const character: Character | undefined = this.dictionary.getCharacterById(tag.characterId);
-          if (character === undefined) {
-            console.warn(`Unknown character id: ${tag.characterId}`);
-            break;
-          }
-          this.placeObject(tag, character);
-        } else {
-          if (tag.depth === undefined) {
-            console.warn("Expected depth to be defined");
-            break;
-          }
-          const displayObject: DisplayObjectBase | undefined = this.getChildAtDepth(tag.depth);
-          if (displayObject === undefined) {
-            console.warn(`DisplayObject not found at depth: ${tag.depth}`);
-            break;
-          }
-          if (tag.matrix !== undefined) {
-            (displayObject as MorphShape).matrix = tag.matrix;
-          }
-          (displayObject as MorphShape).ratio = tag.ratio === undefined ? 0 : tag.ratio / (1 << 16);
-          break;
-        }
+      case TagType.FrameLabel:
+        // Ignore during execution: Frame labels are probed while the sprite is loaded
         break;
-      }
-      case TagType.RemoveObject: {
-        this.applyRemoveObject(tag);
+      case TagType.PlaceObject:
+        this.execPlaceObject(tag);
         break;
-      }
+      case TagType.RemoveObject:
+        this.execRemoveObject(tag);
+        break;
       case TagType.SetBackgroundColor:
       case TagType.FileAttributes:
-      case TagType.FrameLabel:
       case TagType.Metadata:
       case TagType.ShowFrame:
         break;
@@ -129,48 +149,111 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
     }
   }
 
-  protected applyDoAction(tag: DoAction): void {
+  protected execDoAction(tag: DoAction): void {
     // TODO: Pass a thisArg/context bound to this sprite.
-    this.avm1Ctx.executeActions(null /* thisArg */, tag.actions);
+    this.avm1Ctx.executeActions(this /* thisArg */, tag.actions);
   }
 
-  protected applyRemoveObject(tag: RemoveObject): void {
+  protected execPlaceObject(tag: PlaceObjectSwfTag): void {
+    // console.log(tag);
+    let displayObject: DisplayObject;
+    const old: DisplayObjectBase | undefined = this.getChildAtDepth(tag.depth);
+    if (tag.isUpdate) {
+      if (old === undefined) {
+        console.warn("PlaceObject: update=true but old is undefined");
+        return;
+      }
+      if (tag.characterId === undefined) {
+        displayObject = old as DisplayObject; // TODO: Remove type assertion
+      } else {
+        if (tag.characterId === (old as MorphShape).character.id) {
+          // TODO: Check how to handle update with a defined character id matching the old character id
+          //       (maybe it's a state reset?)
+          displayObject = old as DisplayObject; // TODO: Remove type assertion
+        } else {
+          const character: Character | undefined = this.dictionary.getCharacterById(tag.characterId);
+          if (character === undefined) {
+            console.warn(`CharacterIdNotFound: ${tag.characterId}`);
+            return;
+          }
+          switch (character.type) {
+            case CharacterType.Button:
+              displayObject = SimpleButton.fromCharacter(character, this.dictionary, this.avm1Ctx);
+              break;
+            case CharacterType.MorphShape:
+              displayObject = new MorphShape(character);
+              break;
+            case CharacterType.Shape:
+              displayObject = new Shape(character);
+              break;
+            case CharacterType.Sprite:
+              displayObject = ChildSprite.fromCharacter(character, this.dictionary, this.avm1Ctx);
+              break;
+            default:
+              console.warn(`UnknownCharacterType: ${(character as any).type}`);
+              return;
+          }
+        }
+      }
+      if (tag.ratio !== undefined) {
+        (displayObject as MorphShape).ratio = tag.ratio / (1 << 16);
+      }
+      if (tag.matrix !== undefined) {
+        (displayObject as MorphShape).matrix = tag.matrix;
+      }
+      if (displayObject !== old) {
+        this.setChildAtDepth(displayObject, tag.depth);
+      }
+    } else {
+      if (tag.characterId === undefined) {
+        console.warn("PlaceObject: update=false, characterId=undefined");
+        return;
+      }
+
+      if (old !== undefined && tag.characterId === (old as MorphShape).character.id) {
+        // console.log("Collision");
+        return;
+      }
+
+      const character: Character | undefined = this.dictionary.getCharacterById(tag.characterId);
+      if (character === undefined) {
+        console.warn(`CharacterIdNotFound: ${tag.characterId}`);
+        return;
+      }
+      switch (character.type) {
+        case CharacterType.Button:
+          displayObject = SimpleButton.fromCharacter(character, this.dictionary, this.avm1Ctx);
+          break;
+        case CharacterType.MorphShape:
+          displayObject = new MorphShape(character);
+          break;
+        case CharacterType.Shape:
+          displayObject = new Shape(character);
+          break;
+        case CharacterType.Sprite:
+          displayObject = ChildSprite.fromCharacter(character, this.dictionary, this.avm1Ctx);
+          break;
+        default:
+          console.warn(`UnknownCharacterType: ${(character as any).type}`);
+          return;
+      }
+      if (tag.ratio !== undefined) {
+        (displayObject as MorphShape).ratio = tag.ratio / (1 << 16);
+      }
+      if (tag.matrix !== undefined) {
+        (displayObject as MorphShape).matrix = tag.matrix;
+      }
+      this.setChildAtDepth(displayObject, tag.depth);
+    }
+
+    if (tag.name !== undefined) {
+      this.namedChildren.set(tag.name, displayObject as Sprite); // TODO: Remove type cast
+    }
+  }
+
+  protected execRemoveObject(tag: RemoveObject): void {
+    // TODO: How to handle named sprites?
     this.removeChildAtDepth(tag.depth);
-  }
-
-  protected placeObject(tag: PlaceObjectSwfTag, character: Character): void {
-    if (this.getChildAtDepth(tag.depth) !== undefined) {
-      // TODO: Warn on depth collision. This is pretty common at the moment because we do not
-      //       reset the scene state when looping. Once looping resets, collisions should be rare.
-      // console.warn("DepthCollision")
-      return;
-    }
-    switch (character.type) {
-      case CharacterType.Button:
-        const button: SimpleButton = SimpleButton.fromCharacter(character, this.dictionary, this.avm1Ctx);
-        button.matrix = tag.matrix;
-        this.addChildAtDepth(button, tag.depth);
-        break;
-      case CharacterType.MorphShape:
-        const morphShape: MorphShape = new MorphShape(character);
-        morphShape.ratio = tag.ratio === undefined ? 0 : tag.ratio / (1 << 16);
-        morphShape.matrix = tag.matrix;
-        this.addChildAtDepth(morphShape, tag.depth);
-        break;
-      case CharacterType.Shape:
-        const shape: Shape = new Shape(character);
-        shape.matrix = tag.matrix;
-        this.addChildAtDepth(shape, tag.depth);
-        break;
-      case CharacterType.Sprite:
-        const sprite: ChildSprite = ChildSprite.fromCharacter(character, this.dictionary, this.avm1Ctx);
-        sprite.matrix = tag.matrix;
-        this.addChildAtDepth(sprite, tag.depth);
-        break;
-      default:
-        console.warn(`Unknown character type: ${(character as any).type}`);
-        break;
-    }
   }
 }
 
@@ -198,17 +281,23 @@ export class RootSprite extends AbstractSprite {
     }
   }
 
+  execFrameLabel(tag: FrameLabel): void {
+    this.frameLabels.set(tag.name, this.currentFrameIndex);
+  }
+
   nextFrame(isMainLoop: boolean, runScripts: boolean): void {
-    this.currentFrameIndex++;
-    if (this.currentFrameIndex >= this.frameCount) {
-      this.currentFrameIndex = 0;
-    }
-    if (this.currentFrameIndex >= this.frames.length) {
-      return;
-    }
-    const frame: Frame = this.frames[this.currentFrameIndex];
-    for (const tag of frame.tags) {
-      this.applyTag(tag);
+    if (!this.stopped) {
+      this.currentFrameIndex++;
+      if (this.currentFrameIndex >= this.frameCount) {
+        this.currentFrameIndex = 0;
+      }
+      if (this.currentFrameIndex >= this.frames.length) {
+        return;
+      }
+      const frame: Frame = this.frames[this.currentFrameIndex];
+      for (const tag of frame.tags) {
+        this.applyTag(tag);
+      }
     }
     for (const child of this.children) {
       child.nextFrame(isMainLoop, runScripts);
@@ -216,7 +305,13 @@ export class RootSprite extends AbstractSprite {
   }
 
   private addFrame(frame: Frame) {
+    const frameIndex: number = this.frames.length;
     this.frames.push(frame);
+    for (const tag of frame.tags) {
+      if (tag.type === TagType.FrameLabel) {
+        this.frameLabels.set(tag.name, frameIndex);
+      }
+    }
   }
 }
 
@@ -242,6 +337,13 @@ export class ChildSprite extends AbstractSprite {
     super(dictionary, {root: false, id: character.id}, avm1Ctx);
     this.frameCount = frames.length;
     this.frames = frames;
+    for (const [frameIndex, frame] of this.frames.entries()) {
+      for (const tag of frame.tags) {
+        if (tag.type === TagType.FrameLabel) {
+          this.frameLabels.set(tag.name, frameIndex);
+        }
+      }
+    }
     this.currentFrameIndex = -1;
   }
 
@@ -251,16 +353,18 @@ export class ChildSprite extends AbstractSprite {
   }
 
   nextFrame(isMainLoop: boolean, runScripts: boolean): void {
-    this.currentFrameIndex++;
-    if (this.currentFrameIndex >= this.frameCount) {
-      this.currentFrameIndex = 0;
-    }
-    if (this.currentFrameIndex >= this.frames.length) {
-      return;
-    }
-    const frame: Frame = this.frames[this.currentFrameIndex];
-    for (const tag of frame.tags) {
-      this.applyTag(tag);
+    if (!this.stopped) {
+      this.currentFrameIndex++;
+      if (this.currentFrameIndex >= this.frameCount) {
+        this.currentFrameIndex = 0;
+      }
+      if (this.currentFrameIndex >= this.frames.length) {
+        return;
+      }
+      const frame: Frame = this.frames[this.currentFrameIndex];
+      for (const tag of frame.tags) {
+        this.applyTag(tag);
+      }
     }
     for (const child of this.children) {
       child.nextFrame(isMainLoop, runScripts);
@@ -286,7 +390,14 @@ export class DynamicSprite extends AbstractSprite {
     this.currentFrameIndex = -1;
   }
 
+  execFrameLabel(tag: FrameLabel): void {
+    this.frameLabels.set(tag.name, this.currentFrameIndex);
+  }
+
   nextFrame(isMainLoop: boolean, runScripts: boolean): void {
+    if (this.stopped) {
+      return;
+    }
     this.currentFrameIndex++;
     if (this.currentFrameIndex >= this.frameCount) {
       this.currentFrameIndex = 0;

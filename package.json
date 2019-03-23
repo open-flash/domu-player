@@ -3,9 +3,9 @@
   "version": "0.0.1",
   "repository": {},
   "scripts": {
-    "app:build-dev": "webpack",
-    "app:build": "webpack --env.production",
-    "app:watch": "webpack --watch",
+    "app:build-dev": "webpack --mode=development",
+    "app:build": "webpack --mode=production",
+    "app:watch": "webpack --mode=development --watch",
     "serve": "serve build/browser"
   },
   "engines": {
@@ -16,31 +16,31 @@
   "dependencies": {
     "@types/element-resize-detector": "^1.1.2",
     "avm1-tree": "^0.2.0",
-    "avmore": "^0.0.2",
+    "avmore": "^0.0.3",
     "element-resize-detector": "^1.1.15",
     "semantic-types": "^0.1.1",
     "swf-parser": "^0.2.1",
-    "swf-renderer": "^0.0.2",
+    "swf-renderer": "^0.0.3",
     "swf-tree": "^0.2.0"
   },
   "devDependencies": {
     "@types/copy-webpack-plugin": "^4.4.3",
     "@types/html-webpack-plugin": "^3.2.0",
-    "@types/node": "^11.10.5",
-    "@types/webpack": "^4.4.25",
+    "@types/node": "^11.11.6",
+    "@types/webpack": "^4.4.26",
     "@types/webpack-merge": "^4.1.3",
-    "copy-webpack-plugin": "^5.0.0",
+    "copy-webpack-plugin": "^5.0.2",
     "html-webpack-plugin": "^3.2.0",
     "incident": "^3.2.0",
     "script-ext-html-webpack-plugin": "^2.1.3",
     "serve": "^10.1.2",
     "ts-loader": "^5.3.3",
     "ts-node": "^8.0.3",
-    "tslint": "^5.13.1",
-    "typescript": "^3.3.3333",
+    "tslint": "^5.14.0",
+    "typescript": "^3.3.4000",
     "uglifyjs-webpack-plugin": "^2.1.2",
     "webpack": "^4.29.6",
-    "webpack-cli": "^3.2.3",
+    "webpack-cli": "^3.3.0",
     "webpack-merge": "^4.2.1"
   }
 }

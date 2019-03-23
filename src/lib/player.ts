@@ -1,7 +1,6 @@
 import { Incident } from "incident";
 import { Renderer } from "swf-renderer/renderer";
 import { Movie } from "swf-tree/movie";
-import { Avm } from "./avm/avm";
 import { LoaderEvent, loadSwf, SwfLoader } from "./display/loader";
 import { RootSprite } from "./display/sprite";
 import { Stage } from "./display/stage";
@@ -31,10 +30,15 @@ function startLoop(clock: SchedulableClock, frameRate: number, onTick: () => any
   let shift: number = 0;
   let nextTickCount: number = 0;
   let handle: TimerHandle | undefined = undefined;
+  const forceFrameRate: boolean = true;
 
   function handleTick(): void {
+    // for (let _: number = 0; _ < 145; _++) {
+    //   onTick();
+    // }
     onTick();
     scheduleNextTick();
+    // destroy();
   }
 
   function scheduleNextTick(): void {
@@ -42,7 +46,9 @@ function startLoop(clock: SchedulableClock, frameRate: number, onTick: () => any
     const targetTime: number = startTime + shift + (1000 * nextTickCount / frameRate);
     let timeout: number = targetTime - clock.getTime();
     if (timeout < 0) {
-      shift += -timeout;
+      if (!forceFrameRate) {
+        shift += -timeout;
+      }
       // console.warn(`Unable to maintain frameRate (missed by ${-timeout}ms)`);
       timeout = 0;
     }
@@ -54,14 +60,14 @@ function startLoop(clock: SchedulableClock, frameRate: number, onTick: () => any
 
   scheduleNextTick();
 
-  return {
-    destroy(): void {
-      if (handle !== undefined) {
-        clock.clearTimeout(handle);
-        handle = undefined;
-      }
-    },
-  };
+  function destroy(): void {
+    if (handle !== undefined) {
+      clock.clearTimeout(handle);
+      handle = undefined;
+    }
+  }
+
+  return {destroy};
 }
 
 enum PlayerState {
@@ -72,10 +78,6 @@ enum PlayerState {
 
 class Player implements PlayerInterface {
   private readonly clock: SchedulableClock & PausableClock;
-  /**
-   * The VM is only created if we encounter some scripts.
-   */
-  private readonly avm?: Avm;
 
   private readonly renderer: Renderer;
 
