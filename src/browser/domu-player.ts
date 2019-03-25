@@ -1,9 +1,10 @@
 import elementResizeDetector from "element-resize-detector";
 import { Incident } from "incident";
-import { PlayerInterface, startPlayer } from "../lib/player";
-import { SchedulableClock } from "../lib/types/clock";
-import { SYSTEM_CLOCK } from "../lib/services/clock";
 import { CanvasRenderer } from "swf-renderer/renderers/canvas-renderer";
+import { NoopBitmapService } from "swf-renderer/renderers/noop-bitmap-service";
+import { PlayerInterface, startPlayer } from "../lib/player";
+import { SYSTEM_CLOCK } from "../lib/services/clock";
+import { SchedulableClock } from "../lib/types/clock";
 
 export interface Dimensions {
   width: number;

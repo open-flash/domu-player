@@ -20,7 +20,7 @@
     "element-resize-detector": "^1.1.15",
     "semantic-types": "^0.1.1",
     "swf-parser": "^0.2.1",
-    "swf-renderer": "^0.0.3",
+    "swf-renderer": "^0.0.4",
     "swf-tree": "^0.2.0"
   },
   "devDependencies": {

@@ -1,5 +1,6 @@
 import { Incident } from "incident";
 import { Renderer } from "swf-renderer/renderer";
+import { TagType } from "swf-tree";
 import { Movie } from "swf-tree/movie";
 import { LoaderEvent, loadSwf, SwfLoader } from "./display/loader";
 import { RootSprite } from "./display/sprite";
@@ -136,12 +137,21 @@ class Player implements PlayerInterface {
   //   this.mainLoop = startLoop(this.clock, header.frameRate.valueOf(), () => this.onTick());
   // }
 
-  private handleSwfLoaded(movie: Movie): void {
+  private async handleSwfLoaded(movie: Movie): Promise<void> {
     if (this.rootLoader === undefined || this.stage !== undefined) {
       console.error(new Incident("Unexpected state at `handleSwfHeaderLoaded`"));
       return;
     }
     this.stage = new Stage(movie.header.frameSize);
+    for (const tag of movie.tags) {
+      if (tag.type === TagType.DefineBitmap) {
+        try {
+          await this.renderer.addBitmap(tag);
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
     const rootSprite: RootSprite = new RootSprite(movie);
     this.stage.addChild(rootSprite);
 
