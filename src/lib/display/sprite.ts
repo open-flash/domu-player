@@ -1,4 +1,4 @@
-import { Uint16 } from "semantic-types";
+import { Uint16, UintSize } from "semantic-types";
 import { Matrix } from "swf-tree/matrix";
 import { Movie as SwfMovie } from "swf-tree/movie";
 import { Tag } from "swf-tree/tag";
@@ -7,6 +7,7 @@ import { TagType } from "swf-tree/tags/_type";
 import { PlaceObject as PlaceObjectSwfTag } from "swf-tree/tags/place-object";
 import { createAvm1Context } from "../avm/avm";
 import { Avm1Context } from "../types/avm1-context";
+import { ControlTag } from "../types/control-tag";
 import {
   Character,
   CharacterDictionary,
@@ -56,6 +57,21 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
 
   protected readonly dictionary: CharacterDictionary;
   protected stopped: boolean;
+
+  protected readonly frames: Frame[];
+
+  /**
+   * 0-indexed current frame
+   *
+   * Note: the Flash API exposes these frames as 1-indexed (e.g. `MovieClip#currentFrame`).
+   */
+  protected currentFrameIndex: number;
+
+  /**
+   * 0-indexed next frame (or null to use the default `currentFrameIndex + 1`)
+   */
+  protected nextFrameIndex: number | null;
+
   private readonly avm1Ctx: Avm1Context;
 
   constructor(dictionary: CharacterDictionary, character: CharacterRef, avm1Ctx: Avm1Context) {
@@ -66,6 +82,10 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
     this.namedChildren = new Map();
     this.frameLabels = new Map();
     this.stopped = false;
+
+    this.frames = [];
+    this.currentFrameIndex = 0;
+    this.nextFrameIndex = null;
   }
 
   // processTags(tags: SwfTag[], backward: boolean): void {
@@ -83,30 +103,72 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
   //   }
   // }
 
-  nextFrame(isMainLoop: boolean, runScripts: boolean): void {
+  public nextFrame(isMainLoop: boolean, runScripts: boolean): void {
     console.warn("NotImplemented: Sprite#nextFrame");
   }
 
-  gotoAndPlay(frame: number | string): void {
+  public gotoAndPlay(frame: number | string): void {
     this.stopped = false;
     if (typeof frame === "string") {
       const frameIndex: number | undefined = this.frameLabels.get(frame);
       if (frameIndex === undefined) {
         throw new Error(`NotImplemented: UnknownFrameLabel: ${frame}`);
       }
-      // TODO: Clean this up!!!
-      (this as any).currentFrameIndex = frameIndex - 1; // -1 because `nextFrame` starts with an increment
+      this.nextFrameIndex = frameIndex;
     } else {
       console.log("NotImplemented: Sprite#gotoAndPlay on non-string frame");
     }
   }
 
-  stop(): void {
+  public stop(): void {
     this.stopped = true;
   }
 
-  visit<R>(visitor: DisplayObjectVisitor<R>): R {
+  public visit<R>(visitor: DisplayObjectVisitor<R>): R {
     return visitor.visitSprite(this);
+  }
+
+  protected gotoFrame(frameIndex: number): void {
+    if (frameIndex < 0 || frameIndex >= this.frames.length) {
+      throw new RangeError(`FrameIndexOutOfRange: ${frameIndex}`);
+    }
+
+    // When going backward, we in fact replay the tags from the start and only keep the objects that
+    // are placed.
+    // We treat `frameIndex === this.currentFrameIndex` as a previous frame to handle single-frame
+    // sprites. TODO: `return` in this case instead of re-rendering.
+    const fromStart: boolean = frameIndex <= this.currentFrameIndex;
+    const startIndex: UintSize = fromStart ? 0 : this.currentFrameIndex + 1;
+
+    // Compute the tags that introduce differences between `startIndex` and `frameIndex`.
+    // It is mainly about joining frames while removing `PlaceObject`/`RemoveObject` pairs that
+    // cancel each-other.
+    const deltaTags: ControlTag[] = [];
+
+    const removedDepths: Set<UintSize> = new Set();
+    for (let i: UintSize = frameIndex; i >= startIndex; i--) {
+      const frame: Frame = this.frames[i];
+      for (let j: UintSize = frame.controlTags.length - 1; j >= 0; j--) {
+        const tag: ControlTag = frame.controlTags[j];
+        if (removedDepths.has(tag.depth)) {
+          continue;
+        }
+        if (tag.type === TagType.RemoveObject) {
+          removedDepths.add(tag.depth);
+          if (!fromStart) {
+            // When playing from the start, all the objects are removed anyway, but when playing
+            // from the current frame there might already be an object at the current depth and
+            // we need to make sur to remove it.
+            deltaTags.unshift(tag);
+          }
+        } else {
+          deltaTags.unshift(tag);
+        }
+      }
+    }
+
+    this.execControlTags(deltaTags, fromStart);
+    this.currentFrameIndex = frameIndex;
   }
 
   protected applyTag(tag: Tag): void {
@@ -121,7 +183,7 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
         this.dictionary.setCharacter(tag.id, createBitmapCharacter(tag));
         break;
       case TagType.DoAction:
-        this.execDoAction(tag);
+        // Ignore during execution
         break;
       case TagType.DefineShape:
         this.dictionary.setCharacter(tag.id, createShapeCharacter(tag));
@@ -133,10 +195,10 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
         // Ignore during execution: Frame labels are probed while the sprite is loaded
         break;
       case TagType.PlaceObject:
-        this.execPlaceObject(tag);
+        // Ignore during execution: handled by `execControlTags`
         break;
       case TagType.RemoveObject:
-        this.execRemoveObject(tag);
+        // Ignore during execution: handled by `execControlTags`
         break;
       case TagType.SetBackgroundColor:
       case TagType.FileAttributes:
@@ -255,6 +317,48 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
     // TODO: How to handle named sprites?
     this.removeChildAtDepth(tag.depth);
   }
+
+  /**
+   * Executes the provided control tags.
+   *
+   * @param tags Control tags to execute.
+   * @param fromStart Boolean indicating that the control tags correspond to the start of the
+   *                  timeline (otherwise from the current frame). If `true`, all the objects that
+   *                  are not placed by the provided tags will be removed.
+   */
+  private execControlTags(tags: ReadonlyArray<ControlTag>, fromStart: boolean): void {
+    const depthsToRemove: Set<UintSize> = new Set();
+    if (fromStart) {
+      for (const child of this.children) {
+        if (child.depth !== undefined) {
+          depthsToRemove.add(child.depth);
+        }
+      }
+    }
+
+    for (const tag of tags) {
+      switch (tag.type) {
+        case TagType.PlaceObject:
+          this.execPlaceObject(tag);
+          depthsToRemove.delete(tag.depth);
+          break;
+        case TagType.RemoveObject:
+          this.execRemoveObject(tag);
+          break;
+        default:
+          console.warn(`UnexpectedTagType (${TagType[(tag as any).type]})`);
+          break;
+      }
+    }
+
+    if (depthsToRemove.size > 0) {
+      // If executing the control tags from the start, we need to remove the objects that were
+      // there at the start and not placed.
+      for (const depth of depthsToRemove) {
+        this.removeChildAtDepth(depth);
+      }
+    }
+  }
 }
 
 /**
@@ -263,21 +367,21 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
 export class RootSprite extends AbstractSprite {
   readonly frameCount: Uint16;
 
-  // Note: this frame 0-indexed (the frames used by the actions are 1-indexed, ex: MovieClip::currentFrame);
-  currentFrameIndex: number;
-
-  private readonly frames: Frame[];
-
   constructor(movie: SwfMovie) {
     const dictionary: CharacterDictionary = new CharacterDictionary();
     const avm1Ctx: Avm1Context = createAvm1Context();
     super(dictionary, {root: true}, avm1Ctx);
     this.frameCount = movie.header.frameCount;
-    this.frames = [];
-    this.currentFrameIndex = -1;
 
+    this.frames.length = 0;
     for (const frame of collectFrames(movie.tags)) {
       this.addFrame(frame);
+
+      // Register definitions
+      // TODO: Handle definitions more cleanly
+      for (const tag of frame.tags) {
+        this.applyTag(tag);
+      }
     }
   }
 
@@ -287,16 +391,17 @@ export class RootSprite extends AbstractSprite {
 
   nextFrame(isMainLoop: boolean, runScripts: boolean): void {
     if (!this.stopped) {
-      this.currentFrameIndex++;
-      if (this.currentFrameIndex >= this.frameCount) {
-        this.currentFrameIndex = 0;
-      }
-      if (this.currentFrameIndex >= this.frames.length) {
-        return;
-      }
+      const currentFrameIndex: UintSize = this.currentFrameIndex;
+      const nextFrameIndex: UintSize = this.nextFrameIndex !== null
+        ? this.nextFrameIndex
+        : ((currentFrameIndex + 1) % this.frameCount);
+
+      this.gotoFrame(nextFrameIndex);
+      // `this.currentFrameIndex` is updated by `gotoFrame`.
+      this.nextFrameIndex = null;
       const frame: Frame = this.frames[this.currentFrameIndex];
-      for (const tag of frame.tags) {
-        this.applyTag(tag);
+      for (const action of frame.actions) {
+        this.execDoAction(action);
       }
     }
     for (const child of this.children) {
@@ -323,11 +428,6 @@ export class ChildSprite extends AbstractSprite {
 
   readonly frameCount: Uint16;
 
-  // Note: this frame 0-indexed (the frames used by the actions are 1-indexed, ex: MovieClip::currentFrame);
-  currentFrameIndex: number;
-
-  private readonly frames: Frame[];
-
   private constructor(
     dictionary: CharacterDictionary,
     frames: Frame[],
@@ -336,7 +436,7 @@ export class ChildSprite extends AbstractSprite {
   ) {
     super(dictionary, {root: false, id: character.id}, avm1Ctx);
     this.frameCount = frames.length;
-    this.frames = frames;
+    this.frames.splice(0, this.frames.length, ...frames);
     for (const [frameIndex, frame] of this.frames.entries()) {
       for (const tag of frame.tags) {
         if (tag.type === TagType.FrameLabel) {
@@ -354,16 +454,17 @@ export class ChildSprite extends AbstractSprite {
 
   nextFrame(isMainLoop: boolean, runScripts: boolean): void {
     if (!this.stopped) {
-      this.currentFrameIndex++;
-      if (this.currentFrameIndex >= this.frameCount) {
-        this.currentFrameIndex = 0;
-      }
-      if (this.currentFrameIndex >= this.frames.length) {
-        return;
-      }
+      const currentFrameIndex: UintSize = this.currentFrameIndex;
+      const nextFrameIndex: UintSize = this.nextFrameIndex !== null
+        ? this.nextFrameIndex
+        : ((currentFrameIndex + 1) % this.frameCount);
+
+      this.gotoFrame(nextFrameIndex);
+      // `this.currentFrameIndex` is updated by `gotoFrame`.
+      this.nextFrameIndex = null;
       const frame: Frame = this.frames[this.currentFrameIndex];
-      for (const tag of frame.tags) {
-        this.applyTag(tag);
+      for (const action of frame.actions) {
+        this.execDoAction(action);
       }
     }
     for (const child of this.children) {
@@ -372,42 +473,39 @@ export class ChildSprite extends AbstractSprite {
   }
 }
 
-/**
- * Instance of a sprite created dynamically (example: Action Script or button wrapper)
- */
-export class DynamicSprite extends AbstractSprite {
-  readonly frameCount: Uint16;
-
-  // Note: this frame is 0-indexed (the frames used by the actions are 1-indexed, ex: MovieClip::currentFrame);
-  currentFrameIndex: number;
-
-  private readonly frames: Frame[];
-
-  constructor(dictionary: CharacterDictionary, frames: Frame[], avm1Ctx: Avm1Context) {
-    super(dictionary, {root: false}, avm1Ctx);
-    this.frameCount = frames.length;
-    this.frames = frames;
-    this.currentFrameIndex = -1;
-  }
-
-  execFrameLabel(tag: FrameLabel): void {
-    this.frameLabels.set(tag.name, this.currentFrameIndex);
-  }
-
-  nextFrame(isMainLoop: boolean, runScripts: boolean): void {
-    if (this.stopped) {
-      return;
-    }
-    this.currentFrameIndex++;
-    if (this.currentFrameIndex >= this.frameCount) {
-      this.currentFrameIndex = 0;
-    }
-    if (this.currentFrameIndex >= this.frames.length) {
-      return;
-    }
-    const frame: Frame = this.frames[this.currentFrameIndex];
-    for (const tag of frame.tags) {
-      this.applyTag(tag);
-    }
-  }
-}
+// /**
+//  * Instance of a sprite created dynamically (example: Action Script or button wrapper)
+//  */
+// export class DynamicSprite extends AbstractSprite {
+//   readonly frameCount: Uint16;
+//
+//   private readonly frames: Frame[];
+//
+//   constructor(dictionary: CharacterDictionary, frames: Frame[], avm1Ctx: Avm1Context) {
+//     super(dictionary, {root: false}, avm1Ctx);
+//     this.frameCount = frames.length;
+//     this.frames = frames;
+//     this.currentFrameIndex = -1;
+//   }
+//
+//   execFrameLabel(tag: FrameLabel): void {
+//     this.frameLabels.set(tag.name, this.currentFrameIndex);
+//   }
+//
+//   nextFrame(isMainLoop: boolean, runScripts: boolean): void {
+//     if (this.stopped) {
+//       return;
+//     }
+//     this.currentFrameIndex++;
+//     if (this.currentFrameIndex >= this.frameCount) {
+//       this.currentFrameIndex = 0;
+//     }
+//     if (this.currentFrameIndex >= this.frames.length) {
+//       return;
+//     }
+//     const frame: Frame = this.frames[this.currentFrameIndex];
+//     for (const tag of frame.tags) {
+//       this.applyTag(tag);
+//     }
+//   }
+// }

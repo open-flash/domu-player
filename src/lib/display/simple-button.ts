@@ -8,7 +8,6 @@ import { DisplayObjectBase } from "./display-object-base";
 import { DisplayObjectVisitor } from "./display-object-visitor";
 import { Frame } from "./frame";
 import { InteractiveObject } from "./interactive-object";
-import { DynamicSprite } from "./sprite";
 
 export enum ButtonState {
   Up,
@@ -26,7 +25,7 @@ function instanciateState(
     return undefined;
   }
   // TODO: Optimize `length === 1` case
-  return new DynamicSprite(dictionary, [new Frame(tags)], avm1Ctx);
+  return null as any; // new DynamicSprite(dictionary, [new Frame(tags)], avm1Ctx);
 }
 
 export class SimpleButton extends InteractiveObject {
