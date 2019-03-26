@@ -5,7 +5,7 @@
 
 # Doμ Player
 
-The **Doμ Player** (_domu player_) is web-based player for SWF files.
+The **Doμ Player** (_domu player_) is a web-based player for SWF files.
 
 It is part of the [Open Flash][ofl] project.
 
