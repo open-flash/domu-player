@@ -35,7 +35,7 @@ The will create a custom element mimicking the behavior of `<embed>`.
 ### Manual
 
 The _custom tag_ approach uses the default renderer, scheduler, etc. You can gain greater control
-other how you create your player by instanciating it manually with the `createDomuPlayer` function.
+over how you create your player by instanciating it manually with the `createDomuPlayer` function.
 
 [shumway]: https://github.com/mozilla/shumway
 [ofl]: https://github.com/open-flash/open-flash
