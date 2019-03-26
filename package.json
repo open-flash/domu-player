@@ -11,7 +11,12 @@
   "engines": {
     "node": ">=8.0.0"
   },
-  "license": "MIT",
+  "licenses": [
+    {
+      "type": "AGPL-3.0-or-later",
+      "url": "https://spdx.org/licenses/AGPL-3.0-or-later.html"
+    }
+  ],
   "publishConfig": {},
   "dependencies": {
     "@types/element-resize-detector": "^1.1.2",
