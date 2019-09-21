@@ -1,13 +1,13 @@
 import { AvmExternal, AvmObject, AvmValue, AvmValueType } from "avmore/avm-value";
+import { Target } from "avmore/host";
 import { Host, NativeHost } from "avmore/host";
+import { TargetId } from "avmore/vm";
 import { Avm1ScriptId, Vm } from "avmore/vm";
 import { Sprite } from "../display/sprite";
 import { Avm1Context } from "../types/avm1-context";
 import { MovieClipBindings } from "./native/movie-clip";
 import { Realm } from "./realm";
 import { NativeSlot, setNativeSlot } from "./slots";
-import { TargetId } from "avmore/_src/vm";
-import { Target } from "avmore/_src/host";
 
 const REALM: Realm = new Map();
 
@@ -56,6 +56,7 @@ export function createAvm1Context(): Avm1Context {
 
   const host: Host = {
     trace: nativeHost.trace,
+    warn: nativeHost.warn,
     getTarget(targetId: TargetId): Target | undefined {
       const target: Sprite | undefined = TARGET_BY_ID.get(targetId);
       if (target === undefined) {

@@ -21,7 +21,7 @@
   "dependencies": {
     "@types/element-resize-detector": "^1.1.2",
     "avm1-tree": "^0.7.0",
-    "avmore": "^0.0.3",
+    "avmore": "^0.0.4",
     "element-resize-detector": "^1.1.15",
     "semantic-types": "^0.1.1",
     "swf-parser": "^0.8.0",
@@ -35,7 +35,7 @@
     "@types/webpack": "^4.39.1",
     "@types/webpack-merge": "^4.1.5",
     "copy-webpack-plugin": "^5.0.4",
-    "html-webpack-plugin": "^4.0.0-beta.8",
+    "html-webpack-plugin": "^3.2.0",
     "incident": "^3.2.0",
     "script-ext-html-webpack-plugin": "^2.1.4",
     "serve": "^11.1.0",
