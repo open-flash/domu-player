@@ -243,10 +243,14 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
   }
 
   protected execDoAction(tag: DoAction): void {
-    const targetId: TargetId = this.avm1Ctx.host.registerTarget(this.avm1Ctx.vm, this);
-    const avmObj: AvmObject = this.avm1Ctx.spriteToAvm(this);
-    const scriptId: Avm1ScriptId = this.avm1Ctx.vm.createAvm1Script(tag.actions, targetId, avmObj);
-    this.avm1Ctx.vm.runToCompletion(scriptId, 1000);
+    try {
+      const targetId: TargetId = this.avm1Ctx.host.registerTarget(this.avm1Ctx.vm, this);
+      const avmObj: AvmObject = this.avm1Ctx.spriteToAvm(this);
+      const scriptId: Avm1ScriptId = this.avm1Ctx.vm.createAvm1Script(tag.actions, targetId, avmObj);
+      this.avm1Ctx.vm.runToCompletion(scriptId, 1000);
+    } catch (e) {
+      console.warn(e);
+    }
   }
 
   protected execPlaceObject(tag: PlaceObjectSwfTag): void {

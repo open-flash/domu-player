@@ -7,45 +7,8 @@ import { UintSize } from "semantic-types";
 import { Sprite } from "../display/sprite";
 import { Avm1Context } from "../types/avm1-context";
 import { createMovieClipRealm, MovieClipRealm } from "./native/movie-clip";
+import { createSoundRealm, SoundRealm } from "./native/sound";
 import { SPRITE } from "./slots";
-
-//
-// function getAvmSprite(vm: Vm, sprite: Sprite): AvmExternal {
-//   let external: AvmExternal | undefined = AVM_SPRITE_CACHE.get(sprite);
-//
-//   if (external === undefined) {
-//     const target: AvmObject = vm.newObject();
-//     target.prototype = MovieClipBindings.getOrCreate(vm, REALM);
-//     // const ownProperties: Map<string, AvmValue> = new Map();
-//
-//     external = vm.newExternal({
-//       ownKeys(): AvmValue[] {
-//         return [...target.ownProperties.keys()]
-//           .map(value => ({type: AvmValueType.String as AvmValueType.String, value}));
-//       },
-//       get(key: string): AvmValue | undefined {
-//         let value: AvmValue | undefined = vm.tryGetMember(target, key);
-//         if (value === undefined) {
-//           const namedChild: Sprite | undefined = sprite.namedChildren.get(key);
-//           if (namedChild !== undefined) {
-//             value = getAvmSprite(vm, namedChild);
-//           }
-//         }
-//         return value;
-//       },
-//       set(key: string, value: AvmValue): void {
-//         vm.setMember(target, key, value);
-//       },
-//     });
-//     setNativeSlot(external, NativeSlot.SPRITE, sprite);
-//     AVM_SPRITE_CACHE.set(sprite, external);
-//   }
-//
-//   return external;
-// }
-//
-// const TARGET_BY_ID: Map<number, Sprite> = new Map();
-// const TARGET_TO_ID: Map<Sprite, number> = new Map();
 
 export class DomuPlayerHost implements Host {
   private readonly nativeHost: NativeHost;
@@ -125,8 +88,10 @@ const AVM_SPRITE_CACHE: WeakMap<Sprite, AvmObject> = new WeakMap();
 export function createAvm1Context(): Avm1Context {
   const host: DomuPlayerHost = new DomuPlayerHost();
   const vm: Vm = new Vm(host);
-  const mcRealm: MovieClipRealm = createMovieClipRealm(vm.realm);
-  vm.realm.globals.set("MovieClip", mcRealm.movieClip);
+  const movieClipRealm: MovieClipRealm = createMovieClipRealm(vm.realm);
+  const soundRealm: SoundRealm = createSoundRealm(vm.realm);
+  vm.realm.globals.set("MovieClip", movieClipRealm.movieClip);
+  vm.realm.globals.set("Sound", soundRealm.sound);
 
   function spriteToAvm(sprite: Sprite): AvmObject {
     return vm.withContext(ctx => getOrCreateSpriteAvmObject(ctx, sprite));
@@ -144,13 +109,13 @@ export function createAvm1Context(): Avm1Context {
   // Create the AVM object attached to the provided sprite
   function createSpriteAvmObject(ctx: BaseContext, sprite: Sprite): AvmObject {
     // TODO: Handle `registerClass`
-    const obj: AvmObject = vm.newObject(mcRealm.movieClipPrototype);
+    const obj: AvmObject = vm.newObject(movieClipRealm.movieClipPrototype);
     setNatSlot(obj, SPRITE, sprite);
     // TODO: Set named children
     // ctx.setMember...
-    ctx.apply(mcRealm.movieClip, obj, []);
+    ctx.apply(movieClipRealm.movieClip, obj, []);
     return obj;
   }
 
-  return {vm, host, mcRealm, spriteToAvm};
+  return {vm, host, spriteToAvm};
 }
