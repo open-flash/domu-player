@@ -1,88 +1,156 @@
-import { AvmExternal, AvmObject, AvmValue, AvmValueType } from "avmore/avm-value";
-import { Target } from "avmore/host";
-import { Host, NativeHost } from "avmore/host";
-import { TargetId } from "avmore/vm";
-import { Avm1ScriptId, Vm } from "avmore/vm";
+import { AvmObject } from "avmore/avm-value";
+import { BaseContext } from "avmore/context";
+import { Host, NativeHost, Target } from "avmore/host";
+import { setNatSlot } from "avmore/native-slot";
+import { TargetId, Vm } from "avmore/vm";
+import { UintSize } from "semantic-types";
 import { Sprite } from "../display/sprite";
 import { Avm1Context } from "../types/avm1-context";
-import { MovieClipBindings } from "./native/movie-clip";
-import { Realm } from "./realm";
-import { NativeSlot, setNativeSlot } from "./slots";
+import { createMovieClipRealm, MovieClipRealm } from "./native/movie-clip";
+import { SPRITE } from "./slots";
 
-const REALM: Realm = new Map();
+//
+// function getAvmSprite(vm: Vm, sprite: Sprite): AvmExternal {
+//   let external: AvmExternal | undefined = AVM_SPRITE_CACHE.get(sprite);
+//
+//   if (external === undefined) {
+//     const target: AvmObject = vm.newObject();
+//     target.prototype = MovieClipBindings.getOrCreate(vm, REALM);
+//     // const ownProperties: Map<string, AvmValue> = new Map();
+//
+//     external = vm.newExternal({
+//       ownKeys(): AvmValue[] {
+//         return [...target.ownProperties.keys()]
+//           .map(value => ({type: AvmValueType.String as AvmValueType.String, value}));
+//       },
+//       get(key: string): AvmValue | undefined {
+//         let value: AvmValue | undefined = vm.tryGetMember(target, key);
+//         if (value === undefined) {
+//           const namedChild: Sprite | undefined = sprite.namedChildren.get(key);
+//           if (namedChild !== undefined) {
+//             value = getAvmSprite(vm, namedChild);
+//           }
+//         }
+//         return value;
+//       },
+//       set(key: string, value: AvmValue): void {
+//         vm.setMember(target, key, value);
+//       },
+//     });
+//     setNativeSlot(external, NativeSlot.SPRITE, sprite);
+//     AVM_SPRITE_CACHE.set(sprite, external);
+//   }
+//
+//   return external;
+// }
+//
+// const TARGET_BY_ID: Map<number, Sprite> = new Map();
+// const TARGET_TO_ID: Map<Sprite, number> = new Map();
 
-const AVM_SPRITE_CACHE: WeakMap<Sprite, AvmExternal> = new WeakMap();
+export class DomuPlayerHost implements Host {
+  private readonly nativeHost: NativeHost;
+  private readonly targets: Map<TargetId, DomuPlayerTarget>;
+  private readonly spriteToId: WeakMap<Sprite, TargetId>;
 
-function getAvmSprite(vm: Vm, sprite: Sprite): AvmExternal {
-  let external: AvmExternal | undefined = AVM_SPRITE_CACHE.get(sprite);
-
-  if (external === undefined) {
-    const target: AvmObject = vm.newObject();
-    target.prototype = MovieClipBindings.getOrCreate(vm, REALM);
-    // const ownProperties: Map<string, AvmValue> = new Map();
-
-    external = vm.newExternal({
-      ownKeys(): AvmValue[] {
-        return [...target.ownProperties.keys()]
-          .map(value => ({type: AvmValueType.String as AvmValueType.String, value}));
-      },
-      get(key: string): AvmValue | undefined {
-        let value: AvmValue | undefined = vm.tryGetMember(target, key);
-        if (value === undefined) {
-          const namedChild: Sprite | undefined = sprite.namedChildren.get(key);
-          if (namedChild !== undefined) {
-            value = getAvmSprite(vm, namedChild);
-          }
-        }
-        return value;
-      },
-      set(key: string, value: AvmValue): void {
-        vm.setMember(target, key, value);
-      },
-    });
-    setNativeSlot(external, NativeSlot.SPRITE, sprite);
-    AVM_SPRITE_CACHE.set(sprite, external);
+  constructor() {
+    this.nativeHost = new NativeHost();
+    this.targets = new Map();
+    this.spriteToId = new WeakMap();
   }
 
-  return external;
+  trace(message: string): void {
+    this.nativeHost.trace(message);
+  }
+
+  warn(error: any): void {
+    this.nativeHost.warn(error);
+  }
+
+  getTarget(targetId: TargetId): DomuPlayerTarget | undefined {
+    return this.targets.get(targetId);
+  }
+
+  registerTarget(vm: Vm, sprite: Sprite): TargetId {
+    {
+      const id: TargetId | undefined = this.spriteToId.get(sprite);
+      if (id !== undefined) {
+        return id;
+      }
+    }
+    const id: TargetId = this.targets.size;
+    const obj: AvmObject = vm.newObject();
+    const target: DomuPlayerTarget = new DomuPlayerTarget(sprite, obj);
+    this.targets.set(id, target);
+    this.spriteToId.set(sprite, id);
+    return id;
+  }
 }
 
-const TARGET_BY_ID: Map<number, Sprite> = new Map();
-const TARGET_TO_ID: Map<Sprite, number> = new Map();
+export class DomuPlayerTarget implements Target {
+  private readonly sprite: Sprite;
+  private readonly thisArg: AvmObject;
+
+  constructor(sprite: Sprite, thisArg: AvmObject) {
+    this.sprite = sprite;
+    this.thisArg = thisArg;
+  }
+
+  getThis(): AvmObject {
+    return this.thisArg;
+  }
+
+  stop(): void {
+    this.sprite.stop();
+  }
+
+  play(): void {
+    this.sprite.play();
+  }
+
+  gotoFrame(frameIndex: UintSize): void {
+    this.sprite.gotoFrame(frameIndex);
+  }
+
+  gotoLabel(label: string): void {
+    console.warn("NotImplemented: gotoLabel");
+  }
+
+  getFrameLoadingProgress(): {loaded: UintSize; total: UintSize} {
+    return this.sprite.getFrameLoadingProgress();
+  }
+}
+
+const AVM_SPRITE_CACHE: WeakMap<Sprite, AvmObject> = new WeakMap();
 
 export function createAvm1Context(): Avm1Context {
-  const vm: Vm = new Vm();
-  const nativeHost: NativeHost = new NativeHost();
+  const host: DomuPlayerHost = new DomuPlayerHost();
+  const vm: Vm = new Vm(host);
+  const mcRealm: MovieClipRealm = createMovieClipRealm(vm.realm);
+  vm.realm.globals.set("MovieClip", mcRealm.movieClip);
 
-  const host: Host = {
-    trace: nativeHost.trace,
-    warn: nativeHost.warn,
-    getTarget(targetId: TargetId): Target | undefined {
-      const target: Sprite | undefined = TARGET_BY_ID.get(targetId);
-      if (target === undefined) {
-        // TODO: Warn (unknown target)
-        return undefined;
-      }
-      return {
-        stop() {
-          target.stop();
-        },
-      };
-    },
-  };
-
-  return {executeActions};
-
-  function executeActions(target: Sprite, avm1Bytes: Uint8Array): void {
-    let targetId: number | undefined = TARGET_TO_ID.get(target);
-    if (targetId === undefined) {
-      targetId = TARGET_TO_ID.size;
-      TARGET_TO_ID.set(target, targetId);
-      TARGET_BY_ID.set(targetId, target);
-    }
-
-    const external: AvmExternal = getAvmSprite(vm, target);
-    const scriptId: Avm1ScriptId = vm.createAvm1Script(avm1Bytes, targetId, external);
-    vm.runToCompletion(scriptId, host);
+  function spriteToAvm(sprite: Sprite): AvmObject {
+    return vm.withContext(ctx => getOrCreateSpriteAvmObject(ctx, sprite));
   }
+
+  function getOrCreateSpriteAvmObject(ctx: BaseContext, sprite: Sprite): AvmObject {
+    let spriteAvm: AvmObject | undefined = AVM_SPRITE_CACHE.get(sprite);
+    if (spriteAvm === undefined) {
+      spriteAvm = createSpriteAvmObject(ctx, sprite);
+      AVM_SPRITE_CACHE.set(sprite, spriteAvm);
+    }
+    return spriteAvm;
+  }
+
+  // Create the AVM object attached to the provided sprite
+  function createSpriteAvmObject(ctx: BaseContext, sprite: Sprite): AvmObject {
+    // TODO: Handle `registerClass`
+    const obj: AvmObject = vm.newObject(mcRealm.movieClipPrototype);
+    setNatSlot(obj, SPRITE, sprite);
+    // TODO: Set named children
+    // ctx.setMember...
+    ctx.apply(mcRealm.movieClip, obj, []);
+    return obj;
+  }
+
+  return {vm, host, mcRealm, spriteToAvm};
 }

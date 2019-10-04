@@ -6,6 +6,15 @@ import webpack from "webpack";
 
 const PROJECT_ROOT: string = __dirname;
 
+const files: ReadonlyArray<string> = [
+  "index",
+  "homestuck-beta",
+  "homestuck-beta2",
+  "squares",
+  "morph",
+  "shumway-3",
+];
+
 const config: webpack.Configuration = {
   entry: [
     sysPath.resolve(PROJECT_ROOT, "src", "main.browser.ts"),
@@ -36,7 +45,7 @@ const config: webpack.Configuration = {
   },
   target: "web",
   plugins: [
-    ...["index", "homestuck-beta", "squares", "morph", "shumway-3"].map((name: string): webpack.Plugin => {
+    ...files.map((name: string): webpack.Plugin => {
       return new HtmlWebpackPlugin({
         template: sysPath.resolve(PROJECT_ROOT, "src", "static", `${name}.html`),
         filename: sysPath.resolve(PROJECT_ROOT, "build", "browser", `${name}.html`),

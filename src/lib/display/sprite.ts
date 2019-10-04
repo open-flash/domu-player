@@ -1,3 +1,5 @@
+import { Avm1ScriptId } from "avmore/script";
+import { TargetId } from "avmore/vm";
 import { Uint16, UintSize } from "semantic-types";
 import { Matrix } from "swf-tree/matrix";
 import { Movie as SwfMovie } from "swf-tree/movie";
@@ -27,6 +29,7 @@ import { collectFrames, Frame } from "./frame";
 import { MorphShape } from "./morph-shape";
 import { Shape } from "./shape";
 import { SimpleButton } from "./simple-button";
+import { AvmObject } from "avmore/avm-value";
 
 export type CharacterRef = {root: true} | {root: false; id?: Uint16};
 
@@ -41,9 +44,24 @@ export interface Sprite extends DisplayObjectContainer {
   gotoAndPlay(frame: number | string): void;
 
   /**
-   * Stop playback
+   * Play from current frame.
+   */
+  play(): void;
+
+  /**
+   * Stop playback.
    */
   stop(): void;
+
+  /**
+   * Returns the number of loaded frames and total frames.
+   */
+  getFrameLoadingProgress(): {loaded: UintSize; total: UintSize};
+
+  /**
+   * Sets the next frame.
+   */
+  gotoFrame(frameIndex: UintSize): void;
 }
 
 export abstract class AbstractSprite extends DisplayObjectContainer implements Sprite {
@@ -120,6 +138,19 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
     }
   }
 
+  public getFrameLoadingProgress(): {loaded: UintSize; total: UintSize} {
+    const total: UintSize = this.frames.length;
+    return {loaded: total, total};
+  }
+
+  public play(): void {
+    this.stopped = false;
+  }
+
+  public gotoFrame(frameIndex: UintSize): void {
+    this.nextFrameIndex = Math.max(Math.min(frameIndex, this.frames.length - 1), 0);
+  }
+
   public stop(): void {
     this.stopped = true;
   }
@@ -128,7 +159,7 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
     return visitor.visitSprite(this);
   }
 
-  protected gotoFrame(frameIndex: number): void {
+  protected innerGotoFrame(frameIndex: number): void {
     if (frameIndex < 0 || frameIndex >= this.frames.length) {
       throw new RangeError(`FrameIndexOutOfRange: ${frameIndex}`);
     }
@@ -212,8 +243,10 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
   }
 
   protected execDoAction(tag: DoAction): void {
-    // TODO: Pass a thisArg/context bound to this sprite.
-    this.avm1Ctx.executeActions(this /* thisArg */, tag.actions);
+    const targetId: TargetId = this.avm1Ctx.host.registerTarget(this.avm1Ctx.vm, this);
+    const avmObj: AvmObject = this.avm1Ctx.spriteToAvm(this);
+    const scriptId: Avm1ScriptId = this.avm1Ctx.vm.createAvm1Script(tag.actions, targetId, avmObj);
+    this.avm1Ctx.vm.runToCompletion(scriptId, 1000);
   }
 
   protected execPlaceObject(tag: PlaceObjectSwfTag): void {
@@ -310,6 +343,10 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
 
     if (tag.name !== undefined) {
       this.namedChildren.set(tag.name, displayObject as Sprite); // TODO: Remove type cast
+      const selfObj: AvmObject = this.avm1Ctx.spriteToAvm(this);
+      const childObj: AvmObject = this.avm1Ctx.spriteToAvm(displayObject as Sprite);
+      const name: string = tag.name;
+      this.avm1Ctx.vm.withContext(ctx => ctx.setStringMember(selfObj, name, childObj));
     }
   }
 
@@ -396,7 +433,7 @@ export class RootSprite extends AbstractSprite {
         ? this.nextFrameIndex
         : ((currentFrameIndex + 1) % this.frameCount);
 
-      this.gotoFrame(nextFrameIndex);
+      this.innerGotoFrame(nextFrameIndex);
       // `this.currentFrameIndex` is updated by `gotoFrame`.
       this.nextFrameIndex = null;
       const frame: Frame = this.frames[this.currentFrameIndex];
@@ -447,7 +484,11 @@ export class ChildSprite extends AbstractSprite {
     this.currentFrameIndex = -1;
   }
 
-  static fromCharacter(character: SpriteCharacter, dictionary: CharacterDictionary, avm1Ctx: Avm1Context): ChildSprite {
+  static fromCharacter(
+    character: SpriteCharacter,
+    dictionary: CharacterDictionary,
+    avm1Ctx: Avm1Context,
+  ): ChildSprite {
     const frames: Frame[] = [...collectFrames(character.tags)];
     return new ChildSprite(dictionary, frames, character, avm1Ctx);
   }
@@ -459,7 +500,7 @@ export class ChildSprite extends AbstractSprite {
         ? this.nextFrameIndex
         : ((currentFrameIndex + 1) % this.frameCount);
 
-      this.gotoFrame(nextFrameIndex);
+      this.innerGotoFrame(nextFrameIndex);
       // `this.currentFrameIndex` is updated by `gotoFrame`.
       this.nextFrameIndex = null;
       const frame: Frame = this.frames[this.currentFrameIndex];
