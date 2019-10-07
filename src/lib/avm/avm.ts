@@ -75,7 +75,9 @@ export class DomuPlayerTarget implements Target {
   }
 
   gotoLabel(label: string): void {
-    console.warn("NotImplemented: gotoLabel");
+    // TODO: Only `.goto` (do not play if stopped)?
+    this.sprite.gotoAndPlay(label);
+    // console.warn("NotImplemented: gotoLabel");
   }
 
   getFrameLoadingProgress(): {loaded: UintSize; total: UintSize} {

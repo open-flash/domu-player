@@ -2,6 +2,7 @@ import { Uint16 } from "semantic-types";
 import { ButtonCondAction } from "swf-tree/button/button-cond-action";
 import { ImageType } from "swf-tree/image-type";
 import { SpriteTag } from "swf-tree/sprite-tag";
+import { DefineSound } from "swf-tree/tags";
 import { TagType } from "swf-tree/tags/_type";
 import { DefineBitmap } from "swf-tree/tags/define-bitmap";
 import { DefineButton } from "swf-tree/tags/define-button";
@@ -9,12 +10,14 @@ import { DefineMorphShape } from "swf-tree/tags/define-morph-shape";
 import { DefineShape } from "swf-tree/tags/define-shape";
 import { DefineSprite } from "swf-tree/tags/define-sprite";
 import { PlaceObject } from "swf-tree/tags/place-object";
+import { SwfAudioContext } from "../audio/swf-audio-context";
 
 export enum CharacterType {
   Button,
   Bitmap,
   MorphShape,
   Shape,
+  Sound,
   Sprite,
 }
 
@@ -83,7 +86,15 @@ export interface ShapeCharacter {
   readonly definition: DefineShape;
 }
 
-export type Character = BitmapCharacter | ButtonCharacter | MorphShapeCharacter | ShapeCharacter | SpriteCharacter;
+export interface SoundCharacter {
+  readonly id: Uint16;
+  readonly type: CharacterType.Sound;
+  readonly definition: DefineSound;
+  readonly soundId: number;
+}
+
+export type Character =
+  BitmapCharacter | ButtonCharacter | MorphShapeCharacter | ShapeCharacter | SoundCharacter | SpriteCharacter;
 
 // TODO: Avoid creating tags at this point? (create them only if needed when instantiating the button)
 export function createButtonCharacter(tag: DefineButton): ButtonCharacter {
@@ -155,6 +166,17 @@ export function createShapeCharacter(tag: DefineShape): ShapeCharacter {
     type: CharacterType.Shape,
     id: tag.id,
     definition: tag,
+  };
+}
+
+export function createSoundCharacter(ctx: SwfAudioContext, tag: DefineSound): SoundCharacter {
+  const soundId: number = ctx.addSound(tag);
+
+  return {
+    type: CharacterType.Sound,
+    id: tag.id,
+    definition: tag,
+    soundId,
   };
 }
 

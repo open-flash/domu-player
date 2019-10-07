@@ -1,3 +1,4 @@
+import { AvmObject } from "avmore/avm-value";
 import { Avm1ScriptId } from "avmore/script";
 import { TargetId } from "avmore/vm";
 import { Uint16, UintSize } from "semantic-types";
@@ -7,6 +8,7 @@ import { Tag } from "swf-tree/tag";
 import { DoAction, FrameLabel, RemoveObject } from "swf-tree/tags";
 import { TagType } from "swf-tree/tags/_type";
 import { PlaceObject as PlaceObjectSwfTag } from "swf-tree/tags/place-object";
+import { SwfAudioContext } from "../audio/swf-audio-context";
 import { createAvm1Context } from "../avm/avm";
 import { Avm1Context } from "../types/avm1-context";
 import { ControlTag } from "../types/control-tag";
@@ -18,6 +20,7 @@ import {
   createButtonCharacter,
   createMorphShapeCharacter,
   createShapeCharacter,
+  createSoundCharacter,
   createSpriteCharacter,
   SpriteCharacter,
 } from "./character";
@@ -29,7 +32,6 @@ import { collectFrames, Frame } from "./frame";
 import { MorphShape } from "./morph-shape";
 import { Shape } from "./shape";
 import { SimpleButton } from "./simple-button";
-import { AvmObject } from "avmore/avm-value";
 
 export type CharacterRef = {root: true} | {root: false; id?: Uint16};
 
@@ -91,12 +93,19 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
   protected nextFrameIndex: number | null;
 
   private readonly avm1Ctx: Avm1Context;
+  private readonly audioCtx: SwfAudioContext;
 
-  constructor(dictionary: CharacterDictionary, character: CharacterRef, avm1Ctx: Avm1Context) {
+  protected constructor(
+    dictionary: CharacterDictionary,
+    character: CharacterRef,
+    avm1Ctx: Avm1Context,
+    audioCtx: SwfAudioContext,
+  ) {
     super();
     this.dictionary = dictionary;
     this.character = character;
     this.avm1Ctx = avm1Ctx;
+    this.audioCtx = audioCtx;
     this.namedChildren = new Map();
     this.frameLabels = new Map();
     this.stopped = false;
@@ -213,6 +222,9 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
       case TagType.DefineBitmap:
         this.dictionary.setCharacter(tag.id, createBitmapCharacter(tag));
         break;
+      case TagType.DefineSound:
+        this.dictionary.setCharacter(tag.id, createSoundCharacter(this.audioCtx, tag));
+        break;
       case TagType.DoAction:
         // Ignore during execution
         break;
@@ -230,6 +242,9 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
         break;
       case TagType.RemoveObject:
         // Ignore during execution: handled by `execControlTags`
+        break;
+      case TagType.SoundStreamHead:
+        // TODO: Add support for `SoundStreamHead`
         break;
       case TagType.SetBackgroundColor:
       case TagType.FileAttributes:
@@ -277,7 +292,7 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
           }
           switch (character.type) {
             case CharacterType.Button:
-              displayObject = SimpleButton.fromCharacter(character, this.dictionary, this.avm1Ctx);
+              displayObject = SimpleButton.fromCharacter(character, this.dictionary, this.avm1Ctx, this.audioCtx);
               break;
             case CharacterType.MorphShape:
               displayObject = new MorphShape(character);
@@ -286,7 +301,7 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
               displayObject = new Shape(character);
               break;
             case CharacterType.Sprite:
-              displayObject = ChildSprite.fromCharacter(character, this.dictionary, this.avm1Ctx);
+              displayObject = ChildSprite.fromCharacter(character, this.dictionary, this.avm1Ctx, this.audioCtx);
               break;
             default:
               console.warn(`UnknownCharacterType: ${(character as any).type}`);
@@ -321,7 +336,7 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
       }
       switch (character.type) {
         case CharacterType.Button:
-          displayObject = SimpleButton.fromCharacter(character, this.dictionary, this.avm1Ctx);
+          displayObject = SimpleButton.fromCharacter(character, this.dictionary, this.avm1Ctx, this.audioCtx);
           break;
         case CharacterType.MorphShape:
           displayObject = new MorphShape(character);
@@ -330,7 +345,7 @@ export abstract class AbstractSprite extends DisplayObjectContainer implements S
           displayObject = new Shape(character);
           break;
         case CharacterType.Sprite:
-          displayObject = ChildSprite.fromCharacter(character, this.dictionary, this.avm1Ctx);
+          displayObject = ChildSprite.fromCharacter(character, this.dictionary, this.avm1Ctx, this.audioCtx);
           break;
         default:
           console.warn(`UnknownCharacterType: ${(character as any).type}`);
@@ -411,7 +426,8 @@ export class RootSprite extends AbstractSprite {
   constructor(movie: SwfMovie) {
     const dictionary: CharacterDictionary = new CharacterDictionary();
     const avm1Ctx: Avm1Context = createAvm1Context();
-    super(dictionary, {root: true}, avm1Ctx);
+    const audioCtx: SwfAudioContext = new SwfAudioContext();
+    super(dictionary, {root: true}, avm1Ctx, audioCtx);
     this.frameCount = movie.header.frameCount;
 
     this.frames.length = 0;
@@ -472,10 +488,11 @@ export class ChildSprite extends AbstractSprite {
   private constructor(
     dictionary: CharacterDictionary,
     frames: Frame[],
-    character: SpriteCharacter,
+    characterId: Uint16 | undefined,
     avm1Ctx: Avm1Context,
+    audioCtx: SwfAudioContext,
   ) {
-    super(dictionary, {root: false, id: character.id}, avm1Ctx);
+    super(dictionary, {root: false, id: characterId}, avm1Ctx, audioCtx);
     this.frameCount = frames.length;
     this.frames.splice(0, this.frames.length, ...frames);
     for (const [frameIndex, frame] of this.frames.entries()) {
@@ -492,9 +509,20 @@ export class ChildSprite extends AbstractSprite {
     character: SpriteCharacter,
     dictionary: CharacterDictionary,
     avm1Ctx: Avm1Context,
+    audioCtx: SwfAudioContext,
   ): ChildSprite {
     const frames: Frame[] = [...collectFrames(character.tags)];
-    return new ChildSprite(dictionary, frames, character, avm1Ctx);
+    return new ChildSprite(dictionary, frames, character.id, avm1Ctx, audioCtx);
+  }
+
+  static fromButtonState(
+    tags: ReadonlyArray<Tag>,
+    dictionary: CharacterDictionary,
+    avm1Ctx: Avm1Context,
+    audioCtx: SwfAudioContext,
+  ): ChildSprite {
+    const frames: Frame[] = [...collectFrames(tags)];
+    return new ChildSprite(dictionary, frames, undefined, avm1Ctx, audioCtx);
   }
 
   nextFrame(isMainLoop: boolean, runScripts: boolean): void {
