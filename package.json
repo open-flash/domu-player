@@ -25,13 +25,13 @@
     "element-resize-detector": "^1.1.15",
     "semantic-types": "^0.1.1",
     "swf-parser": "^0.8.0",
-    "swf-renderer": "^0.0.5",
+    "swf-renderer": "^0.0.6",
     "swf-tree": "^0.8.0"
   },
   "devDependencies": {
     "@types/copy-webpack-plugin": "^5.0.0",
     "@types/html-webpack-plugin": "^3.2.1",
-    "@types/node": "^12.7.8",
+    "@types/node": "^12.7.11",
     "@types/webpack": "^4.39.2",
     "@types/webpack-merge": "^4.1.5",
     "copy-webpack-plugin": "^5.0.4",
